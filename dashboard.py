@@ -61,6 +61,10 @@ PRODUCT_LABELS = {
     "coca_500": "Coca-Cola 500ml",
 }
 DEFAULT_MARKET = "guadalajara"
+RAPPI_LOGO_URL = (
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/"
+    "Rappi_logo.svg/512px-Rappi_logo.svg.png"
+)
 
 
 # ── Data Loading ──────────────────────────────────────────────────
@@ -201,7 +205,7 @@ df_avail = df[df["product_available"] == True].copy()
 
 # ── Sidebar Filters ──────────────────────────────────────────────
 
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Rappi_logo.svg/512px-Rappi_logo.svg.png", width=120)
+st.sidebar.image(RAPPI_LOGO_URL, width=120)
 st.sidebar.title("Filters")
 st.sidebar.markdown("### Data Source")
 if data_meta["source"] == "live_scrape":
@@ -313,6 +317,10 @@ st.markdown(
     "**Rappi vs Uber Eats vs DiDi Food** â€” "
     "Mexico delivery market view Â· multiple metro areas Â· 4 reference products"
 )
+header_logo_col, _ = st.columns([1, 5])
+with header_logo_col:
+    st.image(RAPPI_LOGO_URL, width=150)
+
 st.caption(
     f"Data source: latest saved scrape `{data_meta['label']}`"
     if data_meta["source"] == "live_scrape"

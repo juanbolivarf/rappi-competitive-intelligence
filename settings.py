@@ -42,13 +42,13 @@ class Settings:
 
     # Scraping behavior
     scrape_delay_seconds: float = field(
-        default_factory=lambda: float(_get_secret("SCRAPE_DELAY_SECONDS", "3"))
+        default_factory=lambda: float(_get_secret("SCRAPE_DELAY_SECONDS", "8"))
     )
     max_retries: int = field(
         default_factory=lambda: int(_get_secret("MAX_RETRIES", "3"))
     )
     request_timeout: int = field(
-        default_factory=lambda: int(_get_secret("REQUEST_TIMEOUT", "30"))
+        default_factory=lambda: int(_get_secret("REQUEST_TIMEOUT", "60"))
     )
 
     # Paths

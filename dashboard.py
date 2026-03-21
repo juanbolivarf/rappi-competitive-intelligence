@@ -15,9 +15,7 @@ Features:
 - Raw data explorer
 """
 
-import sys
 from datetime import datetime
-from pathlib import Path
 
 import streamlit as st
 import pandas as pd
@@ -26,9 +24,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# Project imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from analysis.synthetic_data import generate_synthetic_data
+from synthetic_data import generate_synthetic_data
 
 # ── Page Config ───────────────────────────────────────────────────
 
@@ -447,7 +443,7 @@ with report_col1:
 with report_col2:
     if generate_report:
         with st.spinner("Building executive report (charts + analysis + PDF)..."):
-            from analysis.report_generator import build_report_bytes
+            from report_generator import build_report_bytes
             pdf_bytes = build_report_bytes(df)
 
         st.success(f"Report ready — {len(pdf_bytes) / 1024:.0f} KB")

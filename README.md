@@ -91,8 +91,15 @@ python -m scraper.main --dry-run
 python -m analysis.pipeline
 
 # Launch interactive dashboard (bonus)
-streamlit run analysis/dashboard.py
+streamlit run dashboard.py
 ```
+
+### Deploying to Streamlit Community Cloud
+
+Use `dashboard.py` as the app entrypoint. The dependency ranges in
+`requirements.txt` are intentionally broad enough for Streamlit Community Cloud
+to resolve package wheels compatible with its current Python runtime, which
+avoids source builds for older packages such as `pillow`.
 
 ## 📁 Project Structure
 

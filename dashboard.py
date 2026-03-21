@@ -5,7 +5,7 @@ Bonus deliverable: an interactive Streamlit dashboard that lets
 Strategy and Pricing teams explore the competitive data.
 
 Usage:
-    streamlit run analysis/dashboard.py
+    streamlit run dashboard.py
 
 Features:
 - KPI cards with platform comparison

@@ -200,7 +200,15 @@ def run_live_scrape(
 
 df, data_meta = load_data()
 failure_summary, failure_details = load_failure_details()
+if "metro_area" not in df.columns:
+    df["metro_area"] = DEFAULT_MARKET
+if "metro_label" not in df.columns:
+    df["metro_label"] = df["metro_area"].map(MARKET_LABELS).fillna(df["metro_area"])
 df_avail = df[df["product_available"] == True].copy()
+if "metro_area" not in df_avail.columns:
+    df_avail["metro_area"] = DEFAULT_MARKET
+if "metro_label" not in df_avail.columns:
+    df_avail["metro_label"] = df_avail["metro_area"].map(MARKET_LABELS).fillna(df_avail["metro_area"])
 
 
 # ── Sidebar Filters ──────────────────────────────────────────────

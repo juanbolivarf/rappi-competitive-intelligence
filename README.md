@@ -106,6 +106,14 @@ To enable live scraping from the deployed dashboard, add `CF_ACCOUNT_ID` and
 dashboard will fall back to synthetic demo data unless a saved scrape already
 exists under `data/raw/`.
 
+For Cloudflare Browser Rendering, conservative defaults are recommended in
+Streamlit Cloud to reduce `429` rate-limit errors:
+
+```toml
+SCRAPE_DELAY_SECONDS = "8"
+REQUEST_TIMEOUT = "60"
+```
+
 ## 📁 Project Structure
 
 ```

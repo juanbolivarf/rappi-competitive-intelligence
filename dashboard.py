@@ -91,6 +91,66 @@ def _latest_scrape_path() -> Path | None:
     return json_files[0] if json_files else None
 
 
+def _classify_error(error_message: str | None) -> str:
+    """Map raw scraper errors to high-signal operational categories."""
+    message = (error_message or "").lower()
+    if not message:
+        return "unknown"
+    if "rate limited" in message or "429" in message:
+        return "rate_limit"
+    if "timeout" in message:
+        return "timeout"
+    if "cf_account_id" in message or "cf_api_token" in message or "unauthorized" in message:
+        return "auth_or_config"
+    if "forbidden" in message or "403" in message or "login wall" in message or "login" in message:
+        return "target_site_access"
+    if "product not found" in message:
+        return "extraction_gap"
+    return "other"
+
+
+def _summarize_failures(raw_df: pd.DataFrame) -> pd.DataFrame:
+    """Build an operator-friendly failure summary from raw scrape rows."""
+    if "scrape_success" not in raw_df.columns:
+        return pd.DataFrame()
+
+    failures = raw_df[raw_df["scrape_success"] != True].copy()
+    if failures.empty:
+        return pd.DataFrame()
+
+    failures["failure_type"] = failures["error_message"].apply(_classify_error)
+    return (
+        failures.groupby(["platform", "failure_type"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(["platform", "count"], ascending=[True, False])
+    )
+
+
+@st.cache_data
+def load_failure_details():
+    """Load failure diagnostics for the latest saved scrape, if available."""
+    latest_path = _latest_scrape_path()
+    if not latest_path:
+        return pd.DataFrame(), pd.DataFrame()
+
+    with open(latest_path, encoding="utf-8") as f:
+        raw = json.load(f)
+
+    raw_df = pd.DataFrame(raw)
+    if raw_df.empty or "scrape_success" not in raw_df.columns:
+        return pd.DataFrame(), pd.DataFrame()
+
+    failures = raw_df[raw_df["scrape_success"] != True].copy()
+    if failures.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    failures["failure_type"] = failures["error_message"].apply(_classify_error)
+    return _summarize_failures(raw_df), failures[
+        ["platform", "address_name", "product_name", "failure_type", "error_message"]
+    ]
+
+
 @st.cache_data
 def load_data():
     """Load the latest real scrape if present, otherwise fall back to demo data."""
@@ -125,6 +185,7 @@ def run_live_scrape(selected_platforms: list[str], address_limit: int | None):
 
 
 df, data_meta = load_data()
+failure_summary, failure_details = load_failure_details()
 df_avail = df[df["product_available"] == True].copy()
 
 
@@ -223,6 +284,41 @@ st.caption(
     if data_meta["source"] == "live_scrape"
     else "Data source: synthetic fallback because no saved scrape was found yet"
 )
+if not failure_summary.empty:
+    st.sidebar.markdown("### Failure Summary")
+    st.sidebar.dataframe(
+        failure_summary.rename(
+            columns={
+                "platform": "Platform",
+                "failure_type": "Failure Type",
+                "count": "Count",
+            }
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+    st.markdown("### Scrape Diagnostics")
+    diag_totals = failure_summary.groupby("failure_type")["count"].sum().reset_index()
+    diag_cols = st.columns(len(diag_totals))
+    for idx, row in enumerate(diag_totals.itertuples(index=False)):
+        with diag_cols[idx]:
+            st.metric(row.failure_type.replace("_", " ").title(), int(row.count))
+
+    with st.expander("View scrape failure details"):
+        st.dataframe(
+            failure_details.rename(
+                columns={
+                    "platform": "Platform",
+                    "address_name": "Address",
+                    "product_name": "Product",
+                    "failure_type": "Failure Type",
+                    "error_message": "Error Message",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
 st.markdown("### Key Metrics at a Glance")
 
 kpi_cols = st.columns(len(selected_platforms))

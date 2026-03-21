@@ -2,12 +2,12 @@
 Synthetic Data Generator for Competitive Intelligence.
 
 Generates realistic scraped data based on known market patterns
-in Guadalajara's delivery ecosystem. Used for:
+across multiple Mexican metro areas. Used for:
 1. Testing the full analysis + visualization pipeline
 2. Backup data for presentation (in case live scraping fails)
 3. Demonstrating the system's analytical capabilities
 
-Pricing assumptions based on public observation of GDL delivery market:
+Pricing assumptions based on public observation of delivery-market behavior:
 - Rappi: mid-range pricing, competitive delivery fees
 - Uber Eats: slightly higher product prices, lower delivery fees
 - DiDi Food: aggressive pricing (lowest), higher delivery fees in periphery
@@ -179,6 +179,7 @@ def generate_synthetic_data(seed: int = 42) -> list[dict]:
                     "platform": platform_name,
                     "address_id": address.id,
                     "address_name": address.name,
+                    "metro_area": address.metro_area,
                     "zone_type": zone,
                     "product_id": product.id,
                     "product_name": product.name,

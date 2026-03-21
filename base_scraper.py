@@ -36,6 +36,7 @@ class ScrapedDataPoint:
     address_id: str
     address_name: str
     zone_type: str
+    metro_area: str
     product_id: str
     product_name: str
 
@@ -209,6 +210,7 @@ class BaseScraper(ABC):
                 address_id=address.id,
                 address_name=address.name,
                 zone_type=address.zone_type,
+                metro_area=address.metro_area,
                 product_id=product.id,
                 product_name=product.name,
                 scrape_success=False,

@@ -20,9 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
-from config.addresses import ADDRESSES
-from config.products import PRODUCTS
-from config.settings import settings
+from addresses import ADDRESSES
+from products import PRODUCTS
+from settings import settings
 
 
 # ── Market parameters (calibrated to GDL reality) ────────────────

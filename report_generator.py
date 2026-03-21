@@ -14,7 +14,6 @@ Usage:
 """
 
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -32,10 +31,9 @@ from reportlab.platypus import (
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from config.settings import settings
-from analysis.synthetic_data import generate_synthetic_data
-from analysis.visualizations import generate_all_charts
+from settings import settings
+from synthetic_data import generate_synthetic_data
+from visualizations import generate_all_charts
 
 # ── Colors ────────────────────────────────────────────────────────
 

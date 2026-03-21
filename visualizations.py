@@ -376,8 +376,8 @@ def generate_all_charts(df: pd.DataFrame, output_dir: Path) -> list[Path]:
 # ── CLI ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    from config.settings import settings
-    from analysis.synthetic_data import generate_synthetic_data
+    from settings import settings
+    from synthetic_data import generate_synthetic_data
 
     print("Generating synthetic data...")
     data = generate_synthetic_data()

@@ -15,7 +15,10 @@ Features:
 - Raw data explorer
 """
 
+import asyncio
+import json
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 import pandas as pd
@@ -60,11 +63,13 @@ PRODUCT_LABELS = {
 
 # ── Data Loading ──────────────────────────────────────────────────
 
-@st.cache_data
-def load_data():
-    """Load or generate data."""
-    raw = generate_synthetic_data()
-    df = pd.DataFrame(raw)
+def _prepare_dashboard_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize raw records for dashboard use."""
+    df = df.copy()
+
+    if "scrape_success" in df.columns:
+        df = df[df["scrape_success"] == True].copy()
+
     df["effective_price"] = df["discounted_price_mxn"].fillna(df["product_price_mxn"])
     df["total_cost"] = (
         df["effective_price"].fillna(0)
@@ -80,7 +85,46 @@ def load_data():
     return df
 
 
-df = load_data()
+def _latest_scrape_path() -> Path | None:
+    raw_dir = Path(__file__).parent / "data" / "raw"
+    json_files = sorted(raw_dir.glob("scrape_*.json"), reverse=True)
+    return json_files[0] if json_files else None
+
+
+@st.cache_data
+def load_data():
+    """Load the latest real scrape if present, otherwise fall back to demo data."""
+    latest_path = _latest_scrape_path()
+    if latest_path:
+        with open(latest_path, encoding="utf-8") as f:
+            raw = json.load(f)
+        return _prepare_dashboard_df(pd.DataFrame(raw)), {
+            "source": "live_scrape",
+            "path": str(latest_path),
+            "label": latest_path.name,
+        }
+
+    raw = generate_synthetic_data()
+    return _prepare_dashboard_df(pd.DataFrame(raw)), {
+        "source": "synthetic",
+        "path": None,
+        "label": "synthetic fallback",
+    }
+
+
+def run_live_scrape(selected_platforms: list[str], address_limit: int | None):
+    """Run the async scraper from Streamlit and persist results via the existing pipeline."""
+    from main import run_pipeline
+    from settings import settings
+
+    errors = settings.validate()
+    if errors:
+        raise ValueError(" | ".join(errors))
+
+    return asyncio.run(run_pipeline(selected_platforms, address_limit))
+
+
+df, data_meta = load_data()
 df_avail = df[df["product_available"] == True].copy()
 
 
@@ -88,6 +132,43 @@ df_avail = df[df["product_available"] == True].copy()
 
 st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Rappi_logo.svg/512px-Rappi_logo.svg.png", width=120)
 st.sidebar.title("Filters")
+st.sidebar.markdown("### Data Source")
+if data_meta["source"] == "live_scrape":
+    st.sidebar.success(f"Latest scrape loaded: `{data_meta['label']}`")
+else:
+    st.sidebar.warning("Using synthetic fallback data")
+
+with st.sidebar.expander("Run live scrape"):
+    scrape_platforms = st.multiselect(
+        "Platforms to scrape",
+        options=list(LABELS.keys()),
+        default=["rappi", "ubereats"],
+        format_func=lambda x: LABELS[x],
+        key="scrape_platforms",
+    )
+    scrape_address_limit = st.number_input(
+        "Address limit",
+        min_value=1,
+        max_value=25,
+        value=5,
+        step=1,
+        help="Use a small subset first. Full runs will take longer and cost more API calls.",
+    )
+    if st.button("Run live scrape", use_container_width=True):
+        if not scrape_platforms:
+            st.error("Select at least one platform.")
+        else:
+            try:
+                with st.spinner("Running live scrape against Cloudflare Browser Rendering..."):
+                    results = run_live_scrape(scrape_platforms, int(scrape_address_limit))
+                success_count = sum(1 for row in results if row.scrape_success)
+                st.cache_data.clear()
+                st.success(
+                    f"Scrape completed: {success_count}/{len(results)} successful product observations."
+                )
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Live scrape failed: {exc}")
 
 selected_zones = st.sidebar.multiselect(
     "Zone Types",
@@ -137,6 +218,11 @@ st.markdown(
 
 # ── KPI Cards ─────────────────────────────────────────────────────
 
+st.caption(
+    f"Data source: latest saved scrape `{data_meta['label']}`"
+    if data_meta["source"] == "live_scrape"
+    else "Data source: synthetic fallback because no saved scrape was found yet"
+)
 st.markdown("### Key Metrics at a Glance")
 
 kpi_cols = st.columns(len(selected_platforms))

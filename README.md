@@ -101,6 +101,11 @@ Use `dashboard.py` as the app entrypoint. The dependency ranges in
 to resolve package wheels compatible with its current Python runtime, which
 avoids source builds for older packages such as `pillow`.
 
+To enable live scraping from the deployed dashboard, add `CF_ACCOUNT_ID` and
+`CF_API_TOKEN` to your Streamlit app secrets. Without those secrets, the
+dashboard will fall back to synthetic demo data unless a saved scrape already
+exists under `data/raw/`.
+
 ## 📁 Project Structure
 
 ```

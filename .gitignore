@@ -1,0 +1,40 @@
+# Environment
+.env
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Data (keep structure, ignore heavy files)
+data/raw/*.json
+data/raw/*.csv
+data/processed/*.csv
+data/processed/*.json
+!data/raw/backup/
+
+# Reports (generated)
+reports/*.pdf
+reports/*.html
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Assets (keep screenshots for evidence)
+assets/*.png
+!assets/README.md

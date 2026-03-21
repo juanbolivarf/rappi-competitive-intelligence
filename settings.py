@@ -10,6 +10,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _get_secret(name: str, default: str = "") -> str:
+    """Read config from env first, then Streamlit secrets when available."""
+    value = os.getenv(name)
+    if value:
+        return value
+
+    try:
+        import streamlit as st
+
+        secret = st.secrets.get(name)
+        if secret is not None:
+            return str(secret)
+    except Exception:
+        pass
+
+    return default
+
 PROJECT_ROOT = Path(__file__).parent
 
 
@@ -18,24 +36,24 @@ class Settings:
     """Application settings — single source of truth."""
 
     # Cloudflare Browser Rendering
-    cf_account_id: str = field(default_factory=lambda: os.getenv("CF_ACCOUNT_ID", ""))
-    cf_api_token: str = field(default_factory=lambda: os.getenv("CF_API_TOKEN", ""))
+    cf_account_id: str = field(default_factory=lambda: _get_secret("CF_ACCOUNT_ID"))
+    cf_api_token: str = field(default_factory=lambda: _get_secret("CF_API_TOKEN"))
     cf_base_url: str = field(init=False)
 
     # Scraping behavior
     scrape_delay_seconds: float = field(
-        default_factory=lambda: float(os.getenv("SCRAPE_DELAY_SECONDS", "3"))
+        default_factory=lambda: float(_get_secret("SCRAPE_DELAY_SECONDS", "3"))
     )
     max_retries: int = field(
-        default_factory=lambda: int(os.getenv("MAX_RETRIES", "3"))
+        default_factory=lambda: int(_get_secret("MAX_RETRIES", "3"))
     )
     request_timeout: int = field(
-        default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT", "30"))
+        default_factory=lambda: int(_get_secret("REQUEST_TIMEOUT", "30"))
     )
 
     # Paths
     output_dir: Path = field(
-        default_factory=lambda: PROJECT_ROOT / os.getenv("OUTPUT_DIR", "data")
+        default_factory=lambda: PROJECT_ROOT / _get_secret("OUTPUT_DIR", "data")
     )
     raw_data_dir: Path = field(init=False)
     processed_data_dir: Path = field(init=False)
@@ -44,7 +62,7 @@ class Settings:
 
     # Logging
     log_level: str = field(
-        default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
+        default_factory=lambda: _get_secret("LOG_LEVEL", "INFO")
     )
 
     def __post_init__(self):

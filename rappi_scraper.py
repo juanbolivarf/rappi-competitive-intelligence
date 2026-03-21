@@ -33,19 +33,18 @@ class RappiScraper(BaseScraper):
         """
         Construct Rappi McDonald's restaurant URL.
 
-        KEY FINDING from live testing:
-        - Search page (?term=McDonalds) doesn't filter server-side
-        - Direct store pages work: /restaurantes/{store_id}-{slug}
-        - The /json endpoint successfully extracts product pricing from store pages
-        - Store ID 1306703465 = McDonald's in GDL area
-
-        Strategy: use direct store URL for product pricing,
+        Strategy: use a market-specific direct store URL for product pricing,
         with lat/lng as context for delivery fee calculation.
         """
         lat, lng = address.lat, address.lng
-        # Direct McDonald's store page (discovered via live scraping)
+        market_store_ids = {
+            "guadalajara": "1923209058",
+            "monterrey": "1306705709",
+            "cdmx": "1306705702",
+        }
+        store_id = market_store_ids.get(address.metro_area, market_store_ids["guadalajara"])
         return (
-            f"https://www.rappi.com.mx/restaurantes/1306703465-mcdonalds"
+            f"https://www.rappi.com.mx/restaurantes/{store_id}-mcdonalds"
             f"?lat={lat}&lng={lng}"
         )
 
@@ -95,6 +94,7 @@ class RappiScraper(BaseScraper):
                     address_id=address.id,
                     address_name=address.name,
                     zone_type=address.zone_type,
+                    metro_area=address.metro_area,
                     product_id=product.id,
                     product_name=product.name,
                     product_price_mxn=matched.get("price_mxn"),
@@ -115,6 +115,7 @@ class RappiScraper(BaseScraper):
                     address_id=address.id,
                     address_name=address.name,
                     zone_type=address.zone_type,
+                    metro_area=address.metro_area,
                     product_id=product.id,
                     product_name=product.name,
                     restaurant_available=restaurant_available,

@@ -27,6 +27,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from addresses import MARKET_AREAS, MARKET_LABELS
 from synthetic_data import generate_synthetic_data
 
 # ── Page Config ───────────────────────────────────────────────────
@@ -59,6 +60,7 @@ PRODUCT_LABELS = {
     "nuggets_10": "Nuggets 10pc",
     "coca_500": "Coca-Cola 500ml",
 }
+DEFAULT_MARKET = "guadalajara"
 
 
 # ── Data Loading ──────────────────────────────────────────────────
@@ -82,6 +84,10 @@ def _prepare_dashboard_df(df: pd.DataFrame) -> pd.DataFrame:
     df["platform_label"] = df["platform"].map(LABELS)
     df["zone_label"] = df["zone_type"].map(ZONE_LABELS)
     df["product_label"] = df["product_id"].map(PRODUCT_LABELS)
+    if "metro_area" not in df.columns:
+        df["metro_area"] = DEFAULT_MARKET
+    df["metro_area"] = df["metro_area"].fillna(DEFAULT_MARKET)
+    df["metro_label"] = df["metro_area"].map(MARKET_LABELS).fillna(df["metro_area"])
     return df
 
 
@@ -172,7 +178,11 @@ def load_data():
     }
 
 
-def run_live_scrape(selected_platforms: list[str], address_limit: int | None):
+def run_live_scrape(
+    selected_platforms: list[str],
+    address_limit: int | None,
+    selected_markets: list[str],
+):
     """Run the async scraper from Streamlit and persist results via the existing pipeline."""
     from main import run_pipeline
     from settings import settings
@@ -181,7 +191,7 @@ def run_live_scrape(selected_platforms: list[str], address_limit: int | None):
     if errors:
         raise ValueError(" | ".join(errors))
 
-    return asyncio.run(run_pipeline(selected_platforms, address_limit))
+    return asyncio.run(run_pipeline(selected_platforms, address_limit, selected_markets))
 
 
 df, data_meta = load_data()
@@ -200,6 +210,13 @@ else:
     st.sidebar.warning("Using synthetic fallback data")
 
 with st.sidebar.expander("Run live scrape"):
+    scrape_markets = st.multiselect(
+        "Metro areas",
+        options=MARKET_AREAS,
+        default=[DEFAULT_MARKET],
+        format_func=lambda x: MARKET_LABELS[x],
+        key="scrape_markets",
+    )
     scrape_platforms = st.multiselect(
         "Platforms to scrape",
         options=list(LABELS.keys()),
@@ -216,12 +233,18 @@ with st.sidebar.expander("Run live scrape"):
         help="Use a small subset first. Full runs will take longer and cost more API calls.",
     )
     if st.button("Run live scrape", use_container_width=True):
-        if not scrape_platforms:
+        if not scrape_markets:
+            st.error("Select at least one metro area.")
+        elif not scrape_platforms:
             st.error("Select at least one platform.")
         else:
             try:
                 with st.spinner("Running live scrape against Cloudflare Browser Rendering..."):
-                    results = run_live_scrape(scrape_platforms, int(scrape_address_limit))
+                    results = run_live_scrape(
+                        scrape_platforms,
+                        int(scrape_address_limit),
+                        scrape_markets,
+                    )
                 success_count = sum(1 for row in results if row.scrape_success)
                 st.cache_data.clear()
                 st.success(
@@ -251,12 +274,19 @@ selected_platforms = st.sidebar.multiselect(
     default=list(LABELS.keys()),
     format_func=lambda x: LABELS[x],
 )
+selected_markets = st.sidebar.multiselect(
+    "Metro Areas",
+    options=MARKET_AREAS,
+    default=MARKET_AREAS,
+    format_func=lambda x: MARKET_LABELS[x],
+)
 
 # Apply filters
 mask = (
     df_avail["zone_type"].isin(selected_zones)
     & df_avail["product_id"].isin(selected_products)
     & df_avail["platform"].isin(selected_platforms)
+    & df_avail["metro_area"].isin(selected_markets)
 )
 filtered = df_avail[mask]
 
@@ -279,6 +309,10 @@ st.markdown(
 
 # ── KPI Cards ─────────────────────────────────────────────────────
 
+st.markdown(
+    "**Rappi vs Uber Eats vs DiDi Food** â€” "
+    "Mexico delivery market view Â· multiple metro areas Â· 4 reference products"
+)
 st.caption(
     f"Data source: latest saved scrape `{data_meta['label']}`"
     if data_meta["source"] == "live_scrape"
@@ -578,13 +612,14 @@ with st.expander("📋 Raw Data Explorer"):
     st.markdown(f"**{len(filtered):,}** data points after filtering")
 
     display_cols = [
-        "platform_label", "address_name", "zone_label", "product_label",
+        "platform_label", "metro_label", "address_name", "zone_label", "product_label",
         "product_price_mxn", "delivery_fee_mxn", "service_fee_mxn",
         "total_cost", "avg_delivery_time", "discount_text",
     ]
     st.dataframe(
         filtered[display_cols].rename(columns={
             "platform_label": "Platform",
+            "metro_label": "Metro Area",
             "address_name": "Address",
             "zone_label": "Zone",
             "product_label": "Product",

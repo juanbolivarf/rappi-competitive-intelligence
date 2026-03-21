@@ -24,6 +24,7 @@ from rich.logging import RichHandler
 from rich.table import Table
 
 from config import settings, ADDRESSES, PRODUCTS
+from config.addresses import MARKET_AREAS
 from scraper.cloudflare_client import CloudflareClient
 from scraper.base_scraper import ScrapedDataPoint
 from scraper.rappi_scraper import RappiScraper
@@ -119,13 +120,21 @@ def print_summary(results: list[ScrapedDataPoint]):
 async def run_pipeline(
     platforms: list[str],
     addresses_limit: int | None = None,
+    metro_areas: list[str] | None = None,
 ):
     """Execute the full scraping pipeline."""
-    addresses = ADDRESSES[:addresses_limit] if addresses_limit else ADDRESSES
+    addresses = [
+        address for address in ADDRESSES
+        if not metro_areas or address.metro_area in metro_areas
+    ]
+    addresses = addresses[:addresses_limit] if addresses_limit else addresses
     all_results: list[ScrapedDataPoint] = []
 
     console.print(f"\n[bold]Competitive Intelligence Scraper[/bold]")
     console.print(f"Platforms: {', '.join(platforms)}")
+    console.print(
+        f"Metro areas: {', '.join(metro_areas) if metro_areas else 'all configured areas'}"
+    )
     console.print(f"Addresses: {len(addresses)}")
     console.print(f"Products: {len(PRODUCTS)}")
     console.print(f"Expected data points: {len(platforms) * len(addresses) * len(PRODUCTS)}")
@@ -170,6 +179,13 @@ async def run_pipeline(
     help="Limit to first N addresses (for testing).",
 )
 @click.option(
+    "--metro-area", "-m",
+    "metro_areas",
+    type=click.Choice(MARKET_AREAS),
+    multiple=True,
+    help="Limit scraping to one or more metro areas.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Validate configuration without scraping.",
@@ -180,7 +196,7 @@ async def run_pipeline(
     default="INFO",
     help="Logging verbosity.",
 )
-def main(platform, addresses, dry_run, log_level):
+def main(platform, addresses, metro_areas, dry_run, log_level):
     """Rappi Competitive Intelligence — Data Collection Pipeline."""
     setup_logging(log_level)
 
@@ -201,7 +217,8 @@ def main(platform, addresses, dry_run, log_level):
         return
 
     platforms = list(platform) if platform else list(SCRAPERS.keys())
-    asyncio.run(run_pipeline(platforms, addresses))
+    selected_metro_areas = list(metro_areas) if metro_areas else None
+    asyncio.run(run_pipeline(platforms, addresses, selected_metro_areas))
 
 
 if __name__ == "__main__":

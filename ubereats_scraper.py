@@ -39,19 +39,27 @@ class UberEatsScraper(BaseScraper):
         Strategy: use a set of pre-discovered McDonald's store IDs for GDL,
         then select the nearest one based on address coordinates.
         """
-        # Pre-discovered McDonald's store URLs in GDL (from web search)
-        # Each maps to a physical McDonald's location
-        GDL_MCDONALDS_STORES = [
-            {"slug": "mcdonalds-centro", "id": "pVf6cMIlRtCP2DC0iy7t4w", "lat": 20.6737, "lng": -103.3474},
-            {"slug": "mcdonalds-plaza-independencia", "id": "HqLRowiBS5KMBfE48ygXgg", "lat": 20.7014, "lng": -103.3211},
-            {"slug": "mcdonalds-plaza-midtown", "id": "KwUtfEVXQA6HYy9xbMphvA", "lat": 20.6806, "lng": -103.3906},
-            {"slug": "mcdonalds-la-normal-av-avila-camacho", "id": "2RRMtHa9R1KNZ0ze98zJPw", "lat": 20.6880, "lng": -103.3560},
-            {"slug": "mcdonalds-avenida-mariano-otero", "id": "4gmTDifEQHm5pbiKs4vDBQ", "lat": 20.6437, "lng": -103.3990},
-        ]
+        market_stores = {
+            "guadalajara": [
+                {"slug": "mcdonalds-centro", "id": "pVf6cMIlRtCP2DC0iy7t4w", "lat": 20.6737, "lng": -103.3474},
+                {"slug": "mcdonalds-plaza-independencia", "id": "HqLRowiBS5KMBfE48ygXgg", "lat": 20.7014, "lng": -103.3211},
+                {"slug": "mcdonalds-plaza-midtown", "id": "KwUtfEVXQA6HYy9xbMphvA", "lat": 20.6806, "lng": -103.3906},
+                {"slug": "mcdonalds-la-normal-av-avila-camacho", "id": "2RRMtHa9R1KNZ0ze98zJPw", "lat": 20.6880, "lng": -103.3560},
+                {"slug": "mcdonalds-avenida-mariano-otero", "id": "4gmTDifEQHm5pbiKs4vDBQ", "lat": 20.6437, "lng": -103.3990},
+            ],
+            "monterrey": [
+                {"slug": "mcdonalds-garza-sada", "id": "922nSYLsT1-ERjpi9jnvgw", "lat": 25.6516, "lng": -100.2895},
+            ],
+            "cdmx": [
+                {"slug": "mcdonalds-aeropuerto", "id": "ansFddgoSGilvVgV7sGxoA", "lat": 19.4240, "lng": -99.0844},
+            ],
+        }
+
+        stores = market_stores.get(address.metro_area, market_stores["guadalajara"])
 
         # Find nearest McDonald's to this address
         nearest = min(
-            GDL_MCDONALDS_STORES,
+            stores,
             key=lambda s: (s["lat"] - address.lat) ** 2 + (s["lng"] - address.lng) ** 2,
         )
 
@@ -97,6 +105,7 @@ class UberEatsScraper(BaseScraper):
                     address_id=address.id,
                     address_name=address.name,
                     zone_type=address.zone_type,
+                    metro_area=address.metro_area,
                     product_id=product.id,
                     product_name=product.name,
                     product_price_mxn=matched.get("price_mxn"),
@@ -117,6 +126,7 @@ class UberEatsScraper(BaseScraper):
                     address_id=address.id,
                     address_name=address.name,
                     zone_type=address.zone_type,
+                    metro_area=address.metro_area,
                     product_id=product.id,
                     product_name=product.name,
                     restaurant_available=restaurant_available,

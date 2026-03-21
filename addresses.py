@@ -1,17 +1,17 @@
 """
 Geographic addresses for competitive scraping.
 
-Selection methodology:
-- 25 addresses across the Guadalajara Metropolitan Area (ZMG)
-- Stratified by income level, commercial activity, and population density
-- Covers 5 zone types: high income, mid income, low income/peripheral,
-  commercial corridors, and university/student areas
-- Each address is a real, recognizable location that delivery platforms serve
+The project now supports three metro areas:
+- Guadalajara
+- Monterrey
+- CDMX
 
-Justification:
-Pricing, delivery fees, and availability vary significantly by zone.
-A representative sample lets us identify WHERE Rappi is competitive
-vs where it loses ground — the key input for Pricing and Ops teams.
+Each metro area includes one representative address for each strategic zone:
+- high_income
+- mid_income
+- low_income
+- commercial
+- university
 """
 
 from dataclasses import dataclass
@@ -20,186 +20,202 @@ from dataclasses import dataclass
 @dataclass
 class Address:
     """A delivery address for scraping."""
+
     id: str
     name: str
     street: str
     city: str
-    zone_type: str  # high_income | mid_income | low_income | commercial | university
+    state: str
+    metro_area: str
+    zone_type: str
     lat: float
     lng: float
 
     @property
     def full_address(self) -> str:
-        return f"{self.street}, {self.city}, Jalisco, México"
+        return f"{self.street}, {self.city}, {self.state}, Mexico"
 
 
 ADDRESSES: list[Address] = [
-    # ── High Income Zones ──────────────────────────────────────────
+    # Guadalajara
     Address(
-        id="hi_01", name="Providencia",
+        id="gdl_hi_01",
+        name="Providencia",
         street="Av. Providencia 2577",
-        city="Guadalajara", zone_type="high_income",
-        lat=20.6936, lng=-103.3894,
+        city="Guadalajara",
+        state="Jalisco",
+        metro_area="guadalajara",
+        zone_type="high_income",
+        lat=20.6936,
+        lng=-103.3894,
     ),
     Address(
-        id="hi_02", name="Puerta de Hierro",
-        street="Av. Puerta de Hierro 5065",
-        city="Zapopan", zone_type="high_income",
-        lat=20.7073, lng=-103.4284,
-    ),
-    Address(
-        id="hi_03", name="Colinas de San Javier",
-        street="Paseo San Arturo 1850",
-        city="Zapopan", zone_type="high_income",
-        lat=20.6757, lng=-103.4143,
-    ),
-    Address(
-        id="hi_04", name="Country Club",
-        street="Av. de las Rosas 820",
-        city="Zapopan", zone_type="high_income",
-        lat=20.6816, lng=-103.3979,
-    ),
-    Address(
-        id="hi_05", name="Valle Real",
-        street="Av. Valle Real 1000",
-        city="Zapopan", zone_type="high_income",
-        lat=20.7205, lng=-103.4411,
-    ),
-
-    # ── Mid Income Zones ───────────────────────────────────────────
-    Address(
-        id="mi_01", name="Chapultepec",
+        id="gdl_mi_01",
+        name="Chapultepec",
         street="Av. Chapultepec 120",
-        city="Guadalajara", zone_type="mid_income",
-        lat=20.6712, lng=-103.3635,
+        city="Guadalajara",
+        state="Jalisco",
+        metro_area="guadalajara",
+        zone_type="mid_income",
+        lat=20.6712,
+        lng=-103.3635,
     ),
     Address(
-        id="mi_02", name="Centro Histórico",
-        street="Av. Juárez 638",
-        city="Guadalajara", zone_type="mid_income",
-        lat=20.6737, lng=-103.3474,
+        id="gdl_li_01",
+        name="Tonala Centro",
+        street="Av. Tonala 130",
+        city="Tonala",
+        state="Jalisco",
+        metro_area="guadalajara",
+        zone_type="low_income",
+        lat=20.6250,
+        lng=-103.2434,
     ),
     Address(
-        id="mi_03", name="Ciudad del Sol",
-        street="Av. López Mateos Sur 2375",
-        city="Zapopan", zone_type="mid_income",
-        lat=20.6437, lng=-103.3990,
-    ),
-    Address(
-        id="mi_04", name="Jardines del Bosque",
-        street="Av. Niños Héroes 2890",
-        city="Guadalajara", zone_type="mid_income",
-        lat=20.6573, lng=-103.3749,
-    ),
-    Address(
-        id="mi_05", name="La Estancia",
-        street="Av. Patria 1891",
-        city="Zapopan", zone_type="mid_income",
-        lat=20.7030, lng=-103.3722,
-    ),
-
-    # ── Low Income / Peripheral Zones ──────────────────────────────
-    Address(
-        id="li_01", name="Tonalá Centro",
-        street="Av. Tonalá 130",
-        city="Tonalá", zone_type="low_income",
-        lat=20.6250, lng=-103.2434,
-    ),
-    Address(
-        id="li_02", name="Tlaquepaque Centro",
-        street="Calle Independencia 202",
-        city="San Pedro Tlaquepaque", zone_type="low_income",
-        lat=20.6403, lng=-103.3129,
-    ),
-    Address(
-        id="li_03", name="Miravalle",
-        street="Av. 8 de Julio 3090",
-        city="Guadalajara", zone_type="low_income",
-        lat=20.6189, lng=-103.3483,
-    ),
-    Address(
-        id="li_04", name="Oblatos",
-        street="Calz. Independencia Norte 2950",
-        city="Guadalajara", zone_type="low_income",
-        lat=20.7014, lng=-103.3211,
-    ),
-    Address(
-        id="li_05", name="Tetlán",
-        street="Av. Revolución 1580",
-        city="Guadalajara", zone_type="low_income",
-        lat=20.6675, lng=-103.2988,
-    ),
-
-    # ── Commercial Corridors ───────────────────────────────────────
-    Address(
-        id="co_01", name="Andares",
+        id="gdl_co_01",
+        name="Andares",
         street="Blvd. Puerta de Hierro 4965",
-        city="Zapopan", zone_type="commercial",
-        lat=20.7063, lng=-103.4264,
+        city="Zapopan",
+        state="Jalisco",
+        metro_area="guadalajara",
+        zone_type="commercial",
+        lat=20.7063,
+        lng=-103.4264,
     ),
     Address(
-        id="co_02", name="Plaza del Sol",
-        street="Av. López Mateos Sur 2375",
-        city="Guadalajara", zone_type="commercial",
-        lat=20.6485, lng=-103.3945,
+        id="gdl_un_01",
+        name="ITESO",
+        street="Periferico Sur Manuel Gomez Morin 8585",
+        city="Tlaquepaque",
+        state="Jalisco",
+        metro_area="guadalajara",
+        zone_type="university",
+        lat=20.6081,
+        lng=-103.4166,
+    ),
+    # Monterrey
+    Address(
+        id="mty_hi_01",
+        name="San Pedro Garza Garcia",
+        street="Av. Jose Vasconcelos 150",
+        city="San Pedro Garza Garcia",
+        state="Nuevo Leon",
+        metro_area="monterrey",
+        zone_type="high_income",
+        lat=25.6516,
+        lng=-100.4021,
     ),
     Address(
-        id="co_03", name="Av. Vallarta Poniente",
-        street="Av. Vallarta 6503",
-        city="Zapopan", zone_type="commercial",
-        lat=20.6819, lng=-103.4177,
+        id="mty_mi_01",
+        name="Contry",
+        street="Av. Alfonso Reyes 2800",
+        city="Monterrey",
+        state="Nuevo Leon",
+        metro_area="monterrey",
+        zone_type="mid_income",
+        lat=25.6507,
+        lng=-100.2750,
     ),
     Address(
-        id="co_04", name="Galerías",
-        street="Av. Vallarta 3959",
-        city="Zapopan", zone_type="commercial",
-        lat=20.6806, lng=-103.3906,
+        id="mty_li_01",
+        name="Guadalupe Centro",
+        street="Av. Benito Juarez 100",
+        city="Guadalupe",
+        state="Nuevo Leon",
+        metro_area="monterrey",
+        zone_type="low_income",
+        lat=25.6774,
+        lng=-100.2597,
     ),
     Address(
-        id="co_05", name="Plaza Patria",
-        street="Av. Patria 2085",
-        city="Zapopan", zone_type="commercial",
-        lat=20.7089, lng=-103.3781,
-    ),
-
-    # ── University / Student Zones ─────────────────────────────────
-    Address(
-        id="un_01", name="ITESO",
-        street="Periférico Sur Manuel Gómez Morín 8585",
-        city="Tlaquepaque", zone_type="university",
-        lat=20.6081, lng=-103.4166,
+        id="mty_co_01",
+        name="Valle Oriente",
+        street="Av. Lazaro Cardenas 1000",
+        city="San Pedro Garza Garcia",
+        state="Nuevo Leon",
+        metro_area="monterrey",
+        zone_type="commercial",
+        lat=25.6407,
+        lng=-100.3170,
     ),
     Address(
-        id="un_02", name="UDG CUCEI",
-        street="Blvd. Gral. Marcelino García Barragán 1421",
-        city="Guadalajara", zone_type="university",
-        lat=20.6548, lng=-103.3258,
+        id="mty_un_01",
+        name="Tec de Monterrey MTY",
+        street="Av. Eugenio Garza Sada 2501",
+        city="Monterrey",
+        state="Nuevo Leon",
+        metro_area="monterrey",
+        zone_type="university",
+        lat=25.6516,
+        lng=-100.2895,
+    ),
+    # CDMX
+    Address(
+        id="cdmx_hi_01",
+        name="Polanco",
+        street="Av. Presidente Masaryk 111",
+        city="Miguel Hidalgo",
+        state="Ciudad de Mexico",
+        metro_area="cdmx",
+        zone_type="high_income",
+        lat=19.4327,
+        lng=-99.2007,
     ),
     Address(
-        id="un_03", name="Tec de Monterrey GDL",
-        street="Av. Gral. Ramón Corona 2514",
-        city="Zapopan", zone_type="university",
-        lat=20.7354, lng=-103.4554,
+        id="cdmx_mi_01",
+        name="Del Valle",
+        street="Av. Insurgentes Sur 1100",
+        city="Benito Juarez",
+        state="Ciudad de Mexico",
+        metro_area="cdmx",
+        zone_type="mid_income",
+        lat=19.3828,
+        lng=-99.1773,
     ),
     Address(
-        id="un_04", name="UAG",
-        street="Av. Patria 1201",
-        city="Zapopan", zone_type="university",
-        lat=20.6971, lng=-103.3694,
+        id="cdmx_li_01",
+        name="Iztapalapa Centro",
+        street="Calzada Ermita Iztapalapa 800",
+        city="Iztapalapa",
+        state="Ciudad de Mexico",
+        metro_area="cdmx",
+        zone_type="low_income",
+        lat=19.3574,
+        lng=-99.0926,
     ),
     Address(
-        id="un_05", name="UDG CUCEA",
-        street="Periférico Norte 799",
-        city="Zapopan", zone_type="university",
-        lat=20.7399, lng=-103.3812,
+        id="cdmx_co_01",
+        name="Reforma Centro",
+        street="Paseo de la Reforma 222",
+        city="Cuauhtemoc",
+        state="Ciudad de Mexico",
+        metro_area="cdmx",
+        zone_type="commercial",
+        lat=19.4273,
+        lng=-99.1676,
+    ),
+    Address(
+        id="cdmx_un_01",
+        name="UNAM CU",
+        street="Av. Universidad 3000",
+        city="Coyoacan",
+        state="Ciudad de Mexico",
+        metro_area="cdmx",
+        zone_type="university",
+        lat=19.3320,
+        lng=-99.1885,
     ),
 ]
 
 
-# Quick access helpers
 def get_addresses_by_zone(zone_type: str) -> list[Address]:
     """Filter addresses by zone type."""
     return [a for a in ADDRESSES if a.zone_type == zone_type]
+
+
+def get_addresses_by_market(metro_area: str) -> list[Address]:
+    """Filter addresses by metro area."""
+    return [a for a in ADDRESSES if a.metro_area == metro_area]
 
 
 def get_address_by_id(address_id: str) -> Address | None:
@@ -208,12 +224,17 @@ def get_address_by_id(address_id: str) -> Address | None:
 
 
 ZONE_TYPES = ["high_income", "mid_income", "low_income", "commercial", "university"]
+MARKET_AREAS = ["guadalajara", "monterrey", "cdmx"]
+MARKET_LABELS = {
+    "guadalajara": "Guadalajara",
+    "monterrey": "Monterrey",
+    "cdmx": "CDMX",
+}
 
-# Summary for documentation
 ZONE_SUMMARY = {
-    "high_income": "5 addresses — affluent residential zones with high purchasing power",
-    "mid_income": "5 addresses — middle-class neighborhoods, mainstream consumer base",
-    "low_income": "5 addresses — peripheral/popular zones, price-sensitive consumers",
-    "commercial": "5 addresses — shopping corridors and malls, high delivery volume",
-    "university": "5 addresses — student areas, price-sensitive but tech-savvy",
+    "high_income": "Affluent residential zones with high purchasing power",
+    "mid_income": "Middle-class neighborhoods and mainstream demand",
+    "low_income": "Price-sensitive peripheral or popular zones",
+    "commercial": "High-traffic shopping and business corridors",
+    "university": "Student-heavy, frequency-driven demand pockets",
 }

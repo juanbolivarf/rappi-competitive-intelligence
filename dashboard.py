@@ -45,10 +45,27 @@ PRODUCT_LABELS = {
     "coca_500": "Coca-Cola 500ml",
 }
 DEFAULT_MARKET = "guadalajara"
-RAPPI_LOGO_URL = (
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/"
-    "Rappi_logo.svg/512px-Rappi_logo.svg.png"
-)
+RAPPI_LOGO_PATH = Path(__file__).parent / "assets" / "rappi_logo.svg"
+
+
+def render_rappi_logo(width: int) -> None:
+    """Prefer a local bundled logo so deployment does not depend on hotlinked assets."""
+    if RAPPI_LOGO_PATH.exists():
+        st.image(str(RAPPI_LOGO_PATH), width=width)
+        return
+
+    st.markdown(
+        f"""
+        <div style="
+            color:#ff5a1f;
+            font-size:{max(28, width // 3)}px;
+            font-style:italic;
+            font-weight:800;
+            line-height:1;
+        ">Rappi.</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _prepare_dashboard_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -188,7 +205,7 @@ df, data_meta = load_data()
 failure_summary, failure_details = load_failure_details()
 df_avail = df[df["product_available"] == True].copy()
 
-st.sidebar.image(RAPPI_LOGO_URL, width=120)
+render_rappi_logo(120)
 st.sidebar.title("Filters")
 st.sidebar.markdown("### Data Source")
 if data_meta["source"] == "live_scrape":
@@ -297,7 +314,7 @@ if not failure_summary.empty:
 
 header_logo_col, header_text_col = st.columns([1, 5])
 with header_logo_col:
-    st.image(RAPPI_LOGO_URL, width=150)
+    render_rappi_logo(150)
 with header_text_col:
     st.title("Competitive Intelligence Dashboard")
     st.markdown(
@@ -310,6 +327,8 @@ st.caption(
     if data_meta["source"] == "live_scrape"
     else "Data source: synthetic fallback because no saved scrape was found yet"
 )
+if data_meta["source"] == "synthetic":
+    st.warning("The current charts and KPI metrics are using synthetic fallback data, not a live scrape.")
 
 if not failure_summary.empty:
     st.markdown("### Scrape Diagnostics")

@@ -205,7 +205,6 @@ df, data_meta = load_data()
 failure_summary, failure_details = load_failure_details()
 df_avail = df[df["product_available"] == True].copy()
 
-render_rappi_logo(120)
 st.sidebar.title("Filters")
 st.sidebar.markdown("### Data Source")
 if data_meta["source"] == "live_scrape":

@@ -1,18 +1,8 @@
 """
-Rappi Competitive Intelligence — Interactive Dashboard
-
-Bonus deliverable: an interactive Streamlit dashboard that lets
-Strategy and Pricing teams explore the competitive data.
+Rappi Competitive Intelligence - Interactive Dashboard
 
 Usage:
     streamlit run dashboard.py
-
-Features:
-- KPI cards with platform comparison
-- Interactive charts with Plotly (hover, zoom, filter)
-- Zone-level drill-down
-- Product-level comparison
-- Raw data explorer
 """
 
 import asyncio
@@ -20,26 +10,20 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import streamlit as st
 
 from addresses import MARKET_AREAS, MARKET_LABELS
 from synthetic_data import generate_synthetic_data
 
-# ── Page Config ───────────────────────────────────────────────────
-
 st.set_page_config(
     page_title="Rappi CI Dashboard",
-    page_icon="🔍",
+    page_icon="R",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# ── Colors & Constants ────────────────────────────────────────────
 
 COLORS = {
     "rappi": "#FF6B35",
@@ -48,11 +32,11 @@ COLORS = {
 }
 LABELS = {"rappi": "Rappi", "ubereats": "Uber Eats", "didifood": "DiDi Food"}
 ZONE_LABELS = {
-    "high_income": "🏠 High Income",
-    "mid_income": "🏘️ Mid Income",
-    "commercial": "🏬 Commercial",
-    "university": "🎓 University",
-    "low_income": "📍 Periférica",
+    "high_income": "High Income",
+    "mid_income": "Mid Income",
+    "commercial": "Commercial",
+    "university": "University",
+    "low_income": "Periferica",
 }
 PRODUCT_LABELS = {
     "bigmac": "Big Mac",
@@ -67,15 +51,16 @@ RAPPI_LOGO_URL = (
 )
 
 
-# ── Data Loading ──────────────────────────────────────────────────
-
 def _prepare_dashboard_df(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize raw records for dashboard use."""
     df = df.copy()
 
     if "scrape_success" in df.columns:
         df = df[df["scrape_success"] == True].copy()
 
+    if "metro_area" not in df.columns:
+        df["metro_area"] = DEFAULT_MARKET
+
+    df["metro_area"] = df["metro_area"].fillna(DEFAULT_MARKET)
     df["effective_price"] = df["discounted_price_mxn"].fillna(df["product_price_mxn"])
     df["total_cost"] = (
         df["effective_price"].fillna(0)
@@ -88,9 +73,6 @@ def _prepare_dashboard_df(df: pd.DataFrame) -> pd.DataFrame:
     df["platform_label"] = df["platform"].map(LABELS)
     df["zone_label"] = df["zone_type"].map(ZONE_LABELS)
     df["product_label"] = df["product_id"].map(PRODUCT_LABELS)
-    if "metro_area" not in df.columns:
-        df["metro_area"] = DEFAULT_MARKET
-    df["metro_area"] = df["metro_area"].fillna(DEFAULT_MARKET)
     df["metro_label"] = df["metro_area"].map(MARKET_LABELS).fillna(df["metro_area"])
     return df
 
@@ -102,7 +84,6 @@ def _latest_scrape_path() -> Path | None:
 
 
 def _classify_error(error_message: str | None) -> str:
-    """Map raw scraper errors to high-signal operational categories."""
     message = (error_message or "").lower()
     if not message:
         return "unknown"
@@ -120,7 +101,6 @@ def _classify_error(error_message: str | None) -> str:
 
 
 def _summarize_failures(raw_df: pd.DataFrame) -> pd.DataFrame:
-    """Build an operator-friendly failure summary from raw scrape rows."""
     if "scrape_success" not in raw_df.columns:
         return pd.DataFrame()
 
@@ -139,7 +119,6 @@ def _summarize_failures(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data
 def load_failure_details():
-    """Load failure diagnostics for the latest saved scrape, if available."""
     latest_path = _latest_scrape_path()
     if not latest_path:
         return pd.DataFrame(), pd.DataFrame()
@@ -151,19 +130,27 @@ def load_failure_details():
     if raw_df.empty or "scrape_success" not in raw_df.columns:
         return pd.DataFrame(), pd.DataFrame()
 
+    if "metro_area" not in raw_df.columns:
+        raw_df["metro_area"] = DEFAULT_MARKET
+
     failures = raw_df[raw_df["scrape_success"] != True].copy()
     if failures.empty:
         return pd.DataFrame(), pd.DataFrame()
 
     failures["failure_type"] = failures["error_message"].apply(_classify_error)
-    return _summarize_failures(raw_df), failures[
-        ["platform", "address_name", "product_name", "failure_type", "error_message"]
+    detail_cols = [
+        "platform",
+        "metro_area",
+        "address_name",
+        "product_name",
+        "failure_type",
+        "error_message",
     ]
+    return _summarize_failures(raw_df), failures[detail_cols]
 
 
 @st.cache_data
 def load_data():
-    """Load the latest real scrape if present, otherwise fall back to demo data."""
     latest_path = _latest_scrape_path()
     if latest_path:
         with open(latest_path, encoding="utf-8") as f:
@@ -187,7 +174,6 @@ def run_live_scrape(
     address_limit: int | None,
     selected_markets: list[str],
 ):
-    """Run the async scraper from Streamlit and persist results via the existing pipeline."""
     from main import run_pipeline
     from settings import settings
 
@@ -200,18 +186,7 @@ def run_live_scrape(
 
 df, data_meta = load_data()
 failure_summary, failure_details = load_failure_details()
-if "metro_area" not in df.columns:
-    df["metro_area"] = DEFAULT_MARKET
-if "metro_label" not in df.columns:
-    df["metro_label"] = df["metro_area"].map(MARKET_LABELS).fillna(df["metro_area"])
 df_avail = df[df["product_available"] == True].copy()
-if "metro_area" not in df_avail.columns:
-    df_avail["metro_area"] = DEFAULT_MARKET
-if "metro_label" not in df_avail.columns:
-    df_avail["metro_label"] = df_avail["metro_area"].map(MARKET_LABELS).fillna(df_avail["metro_area"])
-
-
-# ── Sidebar Filters ──────────────────────────────────────────────
 
 st.sidebar.image(RAPPI_LOGO_URL, width=120)
 st.sidebar.title("Filters")
@@ -242,7 +217,7 @@ with st.sidebar.expander("Run live scrape"):
         max_value=25,
         value=5,
         step=1,
-        help="Use a small subset first. Full runs will take longer and cost more API calls.",
+        help="Use a small subset first. Full runs take longer and cost more API calls.",
     )
     if st.button("Run live scrape", use_container_width=True):
         if not scrape_markets:
@@ -272,14 +247,12 @@ selected_zones = st.sidebar.multiselect(
     default=list(ZONE_LABELS.keys()),
     format_func=lambda x: ZONE_LABELS[x],
 )
-
 selected_products = st.sidebar.multiselect(
     "Products",
     options=list(PRODUCT_LABELS.keys()),
     default=list(PRODUCT_LABELS.keys()),
     format_func=lambda x: PRODUCT_LABELS[x],
 )
-
 selected_platforms = st.sidebar.multiselect(
     "Platforms",
     options=list(LABELS.keys()),
@@ -293,7 +266,6 @@ selected_markets = st.sidebar.multiselect(
     format_func=lambda x: MARKET_LABELS[x],
 )
 
-# Apply filters
 mask = (
     df_avail["zone_type"].isin(selected_zones)
     & df_avail["product_id"].isin(selected_products)
@@ -304,36 +276,11 @@ filtered = df_avail[mask]
 
 st.sidebar.markdown("---")
 st.sidebar.caption(
-    f"📊 {len(filtered):,} data points | "
+    f"{len(filtered):,} data points | "
     f"{len(selected_zones)} zones | "
     f"{len(selected_products)} products"
 )
 
-
-# ── Header ────────────────────────────────────────────────────────
-
-st.title("🔍 Competitive Intelligence Dashboard")
-st.markdown(
-    "**Rappi vs Uber Eats vs DiDi Food** — "
-    "Guadalajara Metropolitan Area · 25 locations · 4 reference products"
-)
-
-
-# ── KPI Cards ─────────────────────────────────────────────────────
-
-st.markdown(
-    "**Rappi vs Uber Eats vs DiDi Food** â€” "
-    "Mexico delivery market view Â· multiple metro areas Â· 4 reference products"
-)
-header_logo_col, _ = st.columns([1, 5])
-with header_logo_col:
-    st.image(RAPPI_LOGO_URL, width=150)
-
-st.caption(
-    f"Data source: latest saved scrape `{data_meta['label']}`"
-    if data_meta["source"] == "live_scrape"
-    else "Data source: synthetic fallback because no saved scrape was found yet"
-)
 if not failure_summary.empty:
     st.sidebar.markdown("### Failure Summary")
     st.sidebar.dataframe(
@@ -347,6 +294,24 @@ if not failure_summary.empty:
         use_container_width=True,
         hide_index=True,
     )
+
+header_logo_col, header_text_col = st.columns([1, 5])
+with header_logo_col:
+    st.image(RAPPI_LOGO_URL, width=150)
+with header_text_col:
+    st.title("Competitive Intelligence Dashboard")
+    st.markdown(
+        "**Rappi vs Uber Eats vs DiDi Food** - "
+        "Mexico delivery market view - multiple metro areas - 4 reference products"
+    )
+
+st.caption(
+    f"Data source: latest saved scrape `{data_meta['label']}`"
+    if data_meta["source"] == "live_scrape"
+    else "Data source: synthetic fallback because no saved scrape was found yet"
+)
+
+if not failure_summary.empty:
     st.markdown("### Scrape Diagnostics")
     diag_totals = failure_summary.groupby("failure_type")["count"].sum().reset_index()
     diag_cols = st.columns(len(diag_totals))
@@ -359,6 +324,7 @@ if not failure_summary.empty:
             failure_details.rename(
                 columns={
                     "platform": "Platform",
+                    "metro_area": "Metro Area",
                     "address_name": "Address",
                     "product_name": "Product",
                     "failure_type": "Failure Type",
@@ -371,8 +337,7 @@ if not failure_summary.empty:
 
 st.markdown("### Key Metrics at a Glance")
 
-kpi_cols = st.columns(len(selected_platforms))
-
+kpi_cols = st.columns(max(1, len(selected_platforms)))
 for i, platform in enumerate(selected_platforms):
     pdata = filtered[filtered["platform"] == platform]
     with kpi_cols[i]:
@@ -380,7 +345,7 @@ for i, platform in enumerate(selected_platforms):
         avg_fee = pdata["delivery_fee_mxn"].mean() + pdata["service_fee_mxn"].mean()
         avg_time = pdata["avg_delivery_time"].mean()
         avg_total = pdata["total_cost"].mean()
-        avail = pdata["product_available"].mean() * 100
+        avail = pdata["product_available"].mean() * 100 if len(pdata) else 0
 
         color = COLORS[platform]
         st.markdown(
@@ -406,14 +371,9 @@ for i, platform in enumerate(selected_platforms):
 
 st.markdown("---")
 
-
-# ── Chart 1: Price Comparison ─────────────────────────────────────
-
-st.markdown("### 📊 Insight #1: Product Price Positioning")
-
+st.markdown("### Insight #1: Product Price Positioning")
 fig1 = px.bar(
-    filtered.groupby(["platform_label", "product_label"])["effective_price"]
-    .mean().reset_index(),
+    filtered.groupby(["platform_label", "product_label"])["effective_price"].mean().reset_index(),
     x="product_label",
     y="effective_price",
     color="platform_label",
@@ -426,13 +386,8 @@ fig1.update_layout(height=420, legend_title="Platform", yaxis_tickprefix="$")
 fig1.update_traces(textposition="outside")
 st.plotly_chart(fig1, use_container_width=True)
 
-
-# ── Chart 2: Zone Heatmap ────────────────────────────────────────
-
-st.markdown("### 🗺️ Insight #2: Rappi vs Competition by Zone")
-
+st.markdown("### Insight #2: Rappi vs Competition by Zone")
 col_a, col_b = st.columns([2, 1])
-
 with col_a:
     rappi_data = filtered[filtered["platform"] == "rappi"]
     comp_data = filtered[filtered["platform"] != "rappi"]
@@ -440,12 +395,10 @@ with col_a:
     if not rappi_data.empty and not comp_data.empty:
         rappi_avg = rappi_data.groupby(["zone_type", "product_id"])["total_cost"].mean()
         comp_avg = comp_data.groupby(["zone_type", "product_id"])["total_cost"].mean()
-
         delta = ((rappi_avg - comp_avg) / comp_avg * 100).reset_index()
         delta.columns = ["zone_type", "product_id", "delta_pct"]
         delta["zone_label"] = delta["zone_type"].map(ZONE_LABELS)
         delta["product_label"] = delta["product_id"].map(PRODUCT_LABELS)
-
         pivot = delta.pivot(index="zone_label", columns="product_label", values="delta_pct")
 
         fig2 = px.imshow(
@@ -453,7 +406,8 @@ with col_a:
             x=pivot.columns.tolist(),
             y=pivot.index.tolist(),
             color_continuous_scale="RdYlGn_r",
-            zmin=-15, zmax=15,
+            zmin=-15,
+            zmax=15,
             text_auto="+.1f",
             labels={"color": "Rappi Premium (%)"},
             aspect="auto",
@@ -462,26 +416,20 @@ with col_a:
         fig2.update_traces(texttemplate="%{z:+.1f}%")
         st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.info("Select Rappi + at least one competitor to see the heatmap.")
+        st.info("Select Rappi and at least one competitor to see the heatmap.")
 
 with col_b:
-    st.markdown("""
-    **How to read this chart:**
-    - 🟢 **Green** = Rappi is **cheaper**
-    - 🔴 **Red** = Rappi is **more expensive**
-    - Values show % difference in total checkout cost
-    
-    **Key takeaway:**
-    Rappi's competitiveness varies significantly by zone and product. 
-    The Pricing team should focus on red cells — those are zones where 
-    we're losing on total cost.
-    """)
+    st.markdown(
+        """
+        **How to read this chart**
 
+        Green means Rappi is cheaper.
+        Red means Rappi is more expensive.
+        Values show percent difference in total checkout cost.
+        """
+    )
 
-# ── Chart 3: Fee Structure ───────────────────────────────────────
-
-st.markdown("### 💰 Insight #3: Fee Structure Deep Dive")
-
+st.markdown("### Insight #3: Fee Structure Deep Dive")
 tab1, tab2 = st.tabs(["Overall Fees", "Fees by Zone"])
 
 with tab1:
@@ -491,33 +439,44 @@ with tab1:
     ).reset_index()
 
     fig3 = go.Figure()
-    fig3.add_trace(go.Bar(
-        name="Delivery Fee",
-        x=fee_data["platform_label"],
-        y=fee_data["delivery"],
-        marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
-        text=fee_data["delivery"].apply(lambda x: f"${x:.0f}"),
-        textposition="inside",
-    ))
-    fig3.add_trace(go.Bar(
-        name="Service Fee",
-        x=fee_data["platform_label"],
-        y=fee_data["service"],
-        marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
-        marker_opacity=0.5,
-        marker_pattern_shape="/",
-        text=fee_data["service"].apply(lambda x: f"${x:.0f}"),
-        textposition="inside",
-    ))
-    fig3.update_layout(barmode="stack", height=380, yaxis_tickprefix="$",
-                       yaxis_title="Average Fee (MXN)")
+    fig3.add_trace(
+        go.Bar(
+            name="Delivery Fee",
+            x=fee_data["platform_label"],
+            y=fee_data["delivery"],
+            marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
+            text=fee_data["delivery"].apply(lambda x: f"${x:.0f}"),
+            textposition="inside",
+        )
+    )
+    fig3.add_trace(
+        go.Bar(
+            name="Service Fee",
+            x=fee_data["platform_label"],
+            y=fee_data["service"],
+            marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
+            marker_opacity=0.5,
+            marker_pattern_shape="/",
+            text=fee_data["service"].apply(lambda x: f"${x:.0f}"),
+            textposition="inside",
+        )
+    )
+    fig3.update_layout(
+        barmode="stack",
+        height=380,
+        yaxis_tickprefix="$",
+        yaxis_title="Average Fee (MXN)",
+    )
     st.plotly_chart(fig3, use_container_width=True)
 
 with tab2:
     zone_fees = filtered.groupby(["platform_label", "zone_label"])["delivery_fee_mxn"].mean().reset_index()
     fig3b = px.bar(
-        zone_fees, x="zone_label", y="delivery_fee_mxn",
-        color="platform_label", barmode="group",
+        zone_fees,
+        x="zone_label",
+        y="delivery_fee_mxn",
+        color="platform_label",
+        barmode="group",
         color_discrete_map={LABELS[k]: v for k, v in COLORS.items()},
         labels={"delivery_fee_mxn": "Avg Delivery Fee (MXN)", "zone_label": "Zone", "platform_label": "Platform"},
         text_auto="$.0f",
@@ -526,15 +485,14 @@ with tab2:
     fig3b.update_traces(textposition="outside")
     st.plotly_chart(fig3b, use_container_width=True)
 
-
-# ── Chart 4: Delivery Time ───────────────────────────────────────
-
-st.markdown("### ⏱️ Insight #4: Delivery Time Competitiveness")
-
+st.markdown("### Insight #4: Delivery Time Competitiveness")
 time_data = filtered.groupby(["platform_label", "zone_label"])["avg_delivery_time"].mean().reset_index()
 fig4 = px.bar(
-    time_data, x="zone_label", y="avg_delivery_time",
-    color="platform_label", barmode="group",
+    time_data,
+    x="zone_label",
+    y="avg_delivery_time",
+    color="platform_label",
+    barmode="group",
     color_discrete_map={LABELS[k]: v for k, v in COLORS.items()},
     labels={"avg_delivery_time": "Avg Time (min)", "zone_label": "Zone", "platform_label": "Platform"},
     text_auto=".0f",
@@ -543,11 +501,7 @@ fig4.update_layout(height=420)
 fig4.update_traces(textposition="outside")
 st.plotly_chart(fig4, use_container_width=True)
 
-
-# ── Chart 5: Total Cost Breakdown ─────────────────────────────────
-
-st.markdown("### 🧾 Insight #5: Total Checkout Cost — What Users Actually Pay")
-
+st.markdown("### Insight #5: Total Checkout Cost")
 product_selector = st.selectbox(
     "Select product to analyze:",
     options=list(PRODUCT_LABELS.keys()),
@@ -569,40 +523,40 @@ for component, name, opacity in [
     ("delivery", "Delivery Fee", 0.6),
     ("service", "Service Fee", 0.35),
 ]:
-    fig5.add_trace(go.Bar(
-        name=name,
+    fig5.add_trace(
+        go.Bar(
+            name=name,
+            x=cost_breakdown["platform_label"],
+            y=cost_breakdown[component],
+            marker_opacity=opacity,
+            marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
+            text=cost_breakdown[component].apply(lambda x: f"${x:.0f}"),
+            textposition="inside",
+        )
+    )
+
+fig5.add_trace(
+    go.Scatter(
         x=cost_breakdown["platform_label"],
-        y=cost_breakdown[component],
-        marker_opacity=opacity,
-        marker_color=[COLORS.get(k, "#888") for k in selected_platforms],
-        text=cost_breakdown[component].apply(lambda x: f"${x:.0f}"),
-        textposition="inside",
-    ))
-
-# Add total labels on top
-fig5.add_trace(go.Scatter(
-    x=cost_breakdown["platform_label"],
-    y=cost_breakdown["total"] + 3,
-    text=cost_breakdown["total"].apply(lambda x: f"Total: ${x:.0f}"),
-    mode="text",
-    textfont=dict(size=14, color="black"),
-    showlegend=False,
-))
-
+        y=cost_breakdown["total"] + 3,
+        text=cost_breakdown["total"].apply(lambda x: f"Total: ${x:.0f}"),
+        mode="text",
+        textfont=dict(size=14, color="black"),
+        showlegend=False,
+    )
+)
 fig5.update_layout(
-    barmode="stack", height=420,
-    yaxis_tickprefix="$", yaxis_title="Cost (MXN)",
+    barmode="stack",
+    height=420,
+    yaxis_tickprefix="$",
+    yaxis_title="Cost (MXN)",
     title=f"Cost Breakdown: {PRODUCT_LABELS[product_selector]}",
 )
 st.plotly_chart(fig5, use_container_width=True)
 
-
-# ── Promotions Analysis ──────────────────────────────────────────
-
 st.markdown("---")
-st.markdown("### 🏷️ Promotional Activity")
-
-promo_cols = st.columns(len(selected_platforms))
+st.markdown("### Promotional Activity")
+promo_cols = st.columns(max(1, len(selected_platforms)))
 for i, platform in enumerate(selected_platforms):
     pdata = filtered[filtered["platform"] == platform]
     promos = pdata[pdata["discount_text"].notna()]
@@ -617,86 +571,85 @@ for i, platform in enumerate(selected_platforms):
         if not promos.empty:
             top_promos = promos["discount_text"].value_counts().head(3)
             for promo, count in top_promos.items():
-                st.caption(f"• {promo} ({count}x)")
-
-
-# ── Raw Data Explorer ─────────────────────────────────────────────
+                st.caption(f"- {promo} ({count}x)")
 
 st.markdown("---")
-
-with st.expander("📋 Raw Data Explorer"):
+with st.expander("Raw Data Explorer"):
     st.markdown(f"**{len(filtered):,}** data points after filtering")
-
     display_cols = [
-        "platform_label", "metro_label", "address_name", "zone_label", "product_label",
-        "product_price_mxn", "delivery_fee_mxn", "service_fee_mxn",
-        "total_cost", "avg_delivery_time", "discount_text",
+        "platform_label",
+        "metro_label",
+        "address_name",
+        "zone_label",
+        "product_label",
+        "product_price_mxn",
+        "delivery_fee_mxn",
+        "service_fee_mxn",
+        "total_cost",
+        "avg_delivery_time",
+        "discount_text",
     ]
     st.dataframe(
-        filtered[display_cols].rename(columns={
-            "platform_label": "Platform",
-            "metro_label": "Metro Area",
-            "address_name": "Address",
-            "zone_label": "Zone",
-            "product_label": "Product",
-            "product_price_mxn": "Price (MXN)",
-            "delivery_fee_mxn": "Delivery Fee",
-            "service_fee_mxn": "Service Fee",
-            "total_cost": "Total Cost",
-            "avg_delivery_time": "ETA (min)",
-            "discount_text": "Promotion",
-        }),
+        filtered[display_cols].rename(
+            columns={
+                "platform_label": "Platform",
+                "metro_label": "Metro Area",
+                "address_name": "Address",
+                "zone_label": "Zone",
+                "product_label": "Product",
+                "product_price_mxn": "Price (MXN)",
+                "delivery_fee_mxn": "Delivery Fee",
+                "service_fee_mxn": "Service Fee",
+                "total_cost": "Total Cost",
+                "avg_delivery_time": "ETA (min)",
+                "discount_text": "Promotion",
+            }
+        ),
         use_container_width=True,
         height=400,
     )
 
     csv = filtered[display_cols].to_csv(index=False)
     st.download_button(
-        "📥 Download filtered data as CSV",
+        "Download filtered data as CSV",
         csv,
         "rappi_ci_filtered.csv",
         "text/csv",
     )
 
-
-# ── PDF Report Download ───────────────────────────────────────────
-
 st.markdown("---")
-st.markdown("### 📄 Executive Report")
+st.markdown("### Executive Report")
 st.markdown(
-    "Generate a publication-ready PDF report with all 5 insights, "
-    "charts, KPI tables, methodology, and recommendations."
+    "Generate a publication-ready PDF report with all 5 insights, charts, KPI tables, methodology, and recommendations."
 )
 
 report_col1, report_col2 = st.columns([1, 2])
-
 with report_col1:
-    generate_report = st.button("🔄 Generate PDF Report", type="primary", use_container_width=True)
+    generate_report = st.button("Generate PDF Report", type="primary", use_container_width=True)
 
 with report_col2:
     if generate_report:
-        with st.spinner("Building executive report (charts + analysis + PDF)..."):
+        with st.spinner("Building executive report..."):
             from report_generator import build_report_bytes
+
             pdf_bytes = build_report_bytes(df)
 
-        st.success(f"Report ready — {len(pdf_bytes) / 1024:.0f} KB")
+        st.success(f"Report ready - {len(pdf_bytes) / 1024:.0f} KB")
         st.download_button(
-            label="📥 Download Executive PDF Report",
+            label="Download Executive PDF Report",
             data=pdf_bytes,
             file_name=f"Rappi_CI_Report_{datetime.now().strftime('%Y-%m-%d')}.pdf",
             mime="application/pdf",
             use_container_width=True,
         )
     else:
-        st.info("Click **Generate PDF Report** to create the downloadable report.")
-
-
-# ── Footer ────────────────────────────────────────────────────────
+        st.info("Click Generate PDF Report to create the downloadable report.")
 
 st.markdown("---")
 st.caption(
-    "Rappi Competitive Intelligence System · "
-    "Built by Juan Bolívar · "
-    "Data: 25 addresses × 3 platforms × 4 products = 300 data points · "
+    "Rappi Competitive Intelligence System | "
+    "Built by Juan Bolivar | "
+    f"Data: {df['address_id'].nunique()} addresses x {df['platform'].nunique()} platforms x "
+    f"{df['product_id'].nunique()} products = {len(df):,} data points | "
     "Powered by Cloudflare Browser Rendering + Python + Streamlit"
 )

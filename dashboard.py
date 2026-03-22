@@ -45,14 +45,16 @@ PRODUCT_LABELS = {
     "coca_500": "Coca-Cola 500ml",
 }
 DEFAULT_MARKET = "guadalajara"
-RAPPI_LOGO_PATH = Path(__file__).parent / "assets" / "rappi_logo.svg"
+RAPPI_LOGO_PRIMARY_PATH = Path(__file__).parent / "assets" / "Rappi_logo.png"
+RAPPI_LOGO_FALLBACK_PATH = Path(__file__).parent / "assets" / "rappi_logo.svg"
 
 
 def render_rappi_logo(width: int) -> None:
     """Prefer a local bundled logo so deployment does not depend on hotlinked assets."""
-    if RAPPI_LOGO_PATH.exists():
-        st.image(str(RAPPI_LOGO_PATH), width=width)
-        return
+    for path in (RAPPI_LOGO_PRIMARY_PATH, RAPPI_LOGO_FALLBACK_PATH):
+        if path.exists():
+            st.image(str(path), width=width)
+            return
 
     st.markdown(
         f"""

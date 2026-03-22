@@ -53,78 +53,74 @@ If a value is not available, return null.
 
 RESTAURANT_DATA_SCHEMA = {
     "type": "json_schema",
-    "json_schema": {
-        "name": "restaurant_competitive_data",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "restaurant_name": {
-                    "type": ["string", "null"],
-                    "description": "Name of the restaurant as displayed"
-                },
-                "restaurant_available": {
-                    "type": "boolean",
-                    "description": "Whether the restaurant is currently open/available for orders"
-                },
-                "products": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": ["string", "null"],
-                                "description": "Product name as displayed on the platform"
-                            },
-                            "price_mxn": {
-                                "type": ["number", "null"],
-                                "description": "Regular price in Mexican Pesos"
-                            },
-                            "discounted_price_mxn": {
-                                "type": ["number", "null"],
-                                "description": "Discounted price if promotion active, null otherwise"
-                            },
-                            "discount_text": {
-                                "type": ["string", "null"],
-                                "description": "Promotion or discount description if any"
-                            },
-                            "available": {
-                                "type": "boolean",
-                                "description": "Whether the product is currently available"
-                            },
+    "schema": {
+        "type": "object",
+        "properties": {
+            "restaurant_name": {
+                "type": ["string", "null"],
+                "description": "Name of the restaurant as displayed"
+            },
+            "restaurant_available": {
+                "type": "boolean",
+                "description": "Whether the restaurant is currently open/available for orders"
+            },
+            "products": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": ["string", "null"],
+                            "description": "Product name as displayed on the platform"
                         },
-                        "required": ["name", "price_mxn", "discounted_price_mxn", "discount_text", "available"],
+                        "price_mxn": {
+                            "type": ["number", "null"],
+                            "description": "Regular price in Mexican Pesos"
+                        },
+                        "discounted_price_mxn": {
+                            "type": ["number", "null"],
+                            "description": "Discounted price if promotion active, null otherwise"
+                        },
+                        "discount_text": {
+                            "type": ["string", "null"],
+                            "description": "Promotion or discount description if any"
+                        },
+                        "available": {
+                            "type": "boolean",
+                            "description": "Whether the product is currently available"
+                        },
                     },
-                },
-                "delivery_fee_mxn": {
-                    "type": ["number", "null"],
-                    "description": "Delivery fee in MXN before discounts"
-                },
-                "service_fee_mxn": {
-                    "type": ["number", "null"],
-                    "description": "Platform service fee in MXN"
-                },
-                "estimated_delivery_minutes_min": {
-                    "type": ["number", "null"],
-                    "description": "Minimum estimated delivery time in minutes"
-                },
-                "estimated_delivery_minutes_max": {
-                    "type": ["number", "null"],
-                    "description": "Maximum estimated delivery time in minutes"
-                },
-                "platform_promotions": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of visible platform-wide promotions or banners"
+                    "required": ["name", "price_mxn", "discounted_price_mxn", "discount_text", "available"],
                 },
             },
-            "required": [
-                "restaurant_name", "restaurant_available", "products",
-                "delivery_fee_mxn", "service_fee_mxn",
-                "estimated_delivery_minutes_min", "estimated_delivery_minutes_max",
-                "platform_promotions"
-            ],
+            "delivery_fee_mxn": {
+                "type": ["number", "null"],
+                "description": "Delivery fee in MXN before discounts"
+            },
+            "service_fee_mxn": {
+                "type": ["number", "null"],
+                "description": "Platform service fee in MXN"
+            },
+            "estimated_delivery_minutes_min": {
+                "type": ["number", "null"],
+                "description": "Minimum estimated delivery time in minutes"
+            },
+            "estimated_delivery_minutes_max": {
+                "type": ["number", "null"],
+                "description": "Maximum estimated delivery time in minutes"
+            },
+            "platform_promotions": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of visible platform-wide promotions or banners"
+            },
         },
+        "required": [
+            "restaurant_name", "restaurant_available", "products",
+            "delivery_fee_mxn", "service_fee_mxn",
+            "estimated_delivery_minutes_min", "estimated_delivery_minutes_max",
+            "platform_promotions"
+        ],
     },
 }
 

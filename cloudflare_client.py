@@ -83,9 +83,7 @@ class CloudflareClient:
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=5, max=60),
-        retry=retry_if_exception_type(
-            (CloudflareRateLimitError, httpx.HTTPStatusError, httpx.TimeoutException)
-        ),
+        retry=retry_if_exception_type((CloudflareRateLimitError, httpx.TimeoutException)),
         before_sleep=lambda retry_state: logger.warning(
             "Retry attempt %s after error: %s",
             retry_state.attempt_number,
@@ -111,6 +109,11 @@ class CloudflareClient:
                 except ValueError:
                     logger.warning("Cloudflare rate limit hit. Invalid Retry-After header: %s", retry_after)
             raise CloudflareRateLimitError("Rate limited by Cloudflare")
+
+        if response.status_code == 422:
+            raise CloudflareClientError(
+                f"Cloudflare rejected the request payload (422): {response.text[:500]}"
+            )
 
         response.raise_for_status()
         return response.json()

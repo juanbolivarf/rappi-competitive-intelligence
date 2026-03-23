@@ -38,3 +38,5 @@ Thumbs.db
 # Assets (keep screenshots for evidence)
 assets/*.png
 !assets/README.md
+.didi_session/
+nul

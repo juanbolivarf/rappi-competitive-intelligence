@@ -104,6 +104,13 @@ class CloudflareClient:
             logger.warning("Rate limited (429) — will retry with exponential backoff")
             raise CloudflareRateLimitError("Rate limited by Cloudflare")
 
+        # Log actual status code before raising for better debugging
+        if response.status_code >= 400:
+            body_preview = response.text[:200] if response.text else "(empty)"
+            logger.error(
+                f"HTTP {response.status_code} from Cloudflare: {body_preview}"
+            )
+
         response.raise_for_status()
         return response.json()
 

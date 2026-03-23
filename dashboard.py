@@ -237,7 +237,7 @@ with st.sidebar.expander("Run live scrape"):
         step=1,
         help="Use a small subset first. Full runs take longer and cost more API calls.",
     )
-    if st.button("Run live scrape", use_container_width=True):
+    if st.button("Run live scrape", width="stretch"):
         if not scrape_markets:
             st.error("Select at least one metro area.")
         elif not scrape_platforms:
@@ -309,7 +309,7 @@ if not failure_summary.empty:
                 "count": "Count",
             }
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -351,7 +351,7 @@ if not failure_summary.empty:
                     "error_message": "Error Message",
                 }
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -404,7 +404,7 @@ fig1 = px.bar(
 )
 fig1.update_layout(height=420, legend_title="Platform", yaxis_tickprefix="$")
 fig1.update_traces(textposition="outside")
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, width="stretch")
 
 st.markdown("### Insight #2: Rappi vs Competition by Zone")
 col_a, col_b = st.columns([2, 1])
@@ -434,7 +434,7 @@ with col_a:
         )
         fig2.update_layout(height=380)
         fig2.update_traces(texttemplate="%{z:+.1f}%")
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width="stretch")
     else:
         st.info("Select Rappi and at least one competitor to see the heatmap.")
 
@@ -487,7 +487,7 @@ with tab1:
         yaxis_tickprefix="$",
         yaxis_title="Average Fee (MXN)",
     )
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width="stretch")
 
 with tab2:
     zone_fees = filtered.groupby(["platform_label", "zone_label"])["delivery_fee_mxn"].mean().reset_index()
@@ -503,7 +503,7 @@ with tab2:
     )
     fig3b.update_layout(height=420, yaxis_tickprefix="$")
     fig3b.update_traces(textposition="outside")
-    st.plotly_chart(fig3b, use_container_width=True)
+    st.plotly_chart(fig3b, width="stretch")
 
 st.markdown("### Insight #4: Delivery Time Competitiveness")
 time_data = filtered.groupby(["platform_label", "zone_label"])["avg_delivery_time"].mean().reset_index()
@@ -519,7 +519,7 @@ fig4 = px.bar(
 )
 fig4.update_layout(height=420)
 fig4.update_traces(textposition="outside")
-st.plotly_chart(fig4, use_container_width=True)
+st.plotly_chart(fig4, width="stretch")
 
 st.markdown("### Insight #5: Total Checkout Cost")
 product_selector = st.selectbox(
@@ -572,7 +572,7 @@ fig5.update_layout(
     yaxis_title="Cost (MXN)",
     title=f"Cost Breakdown: {PRODUCT_LABELS[product_selector]}",
 )
-st.plotly_chart(fig5, use_container_width=True)
+st.plotly_chart(fig5, width="stretch")
 
 st.markdown("---")
 st.markdown("### Promotional Activity")
@@ -625,7 +625,7 @@ with st.expander("Raw Data Explorer"):
                 "discount_text": "Promotion",
             }
         ),
-        use_container_width=True,
+        width="stretch",
         height=400,
     )
 
@@ -645,7 +645,7 @@ st.markdown(
 
 report_col1, report_col2 = st.columns([1, 2])
 with report_col1:
-    generate_report = st.button("Generate PDF Report", type="primary", use_container_width=True)
+    generate_report = st.button("Generate PDF Report", type="primary", width="stretch")
 
 with report_col2:
     if generate_report:
@@ -660,7 +660,7 @@ with report_col2:
             data=pdf_bytes,
             file_name=f"Rappi_CI_Report_{datetime.now().strftime('%Y-%m-%d')}.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.info("Click Generate PDF Report to create the downloadable report.")

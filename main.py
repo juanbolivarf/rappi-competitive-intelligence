@@ -251,33 +251,58 @@ async def run_pipeline(
                         ))
 
             elif platform_name == "ubereats":
-                # Use Playwright for full data (delivery fee, ETA)
-                async with UberEatsPlaywrightScraper() as scraper:
-                    results = await scraper.scrape_all(addresses, products)
-                    for r in results:
-                        all_results.append(ScrapedDataPoint(
-                            platform=r.platform,
-                            address_id=r.address_id,
-                            address_name=r.address_name,
-                            zone_type=r.zone_type,
-                            metro_area=r.metro_area,
-                            product_id=r.product_id,
-                            product_name=r.product_name,
-                            product_price_mxn=r.product_price_mxn,
-                            discounted_price_mxn=r.discounted_price_mxn,
-                            delivery_fee_mxn=r.delivery_fee_mxn,
-                            service_fee_mxn=r.service_fee_mxn,
-                            total_price_mxn=r.total_price_mxn,
-                            estimated_minutes_min=r.estimated_minutes_min,
-                            estimated_minutes_max=r.estimated_minutes_max,
-                            restaurant_available=r.restaurant_available,
-                            product_available=r.product_available,
-                            discount_text=r.discount_text,
-                            platform_promotions=r.platform_promotions if hasattr(r, 'platform_promotions') else [],
-                            scrape_success=r.scrape_success,
-                            error_message=r.error_message,
-                            url_scraped=r.url_scraped,
-                        ))
+                # Try Playwright first (full data), fall back to SSR if not available
+                use_playwright = True
+                try:
+                    from playwright.async_api import async_playwright
+                    # Quick check if browsers are installed
+                    import subprocess
+                    result = subprocess.run(
+                        ["playwright", "install", "--dry-run", "chromium"],
+                        capture_output=True, timeout=5
+                    )
+                except Exception:
+                    use_playwright = False
+                    console.print("[yellow]Playwright not available, using SSR (limited data)[/yellow]")
+
+                if use_playwright:
+                    try:
+                        async with UberEatsPlaywrightScraper() as scraper:
+                            results = await scraper.scrape_all(addresses, products)
+                    except Exception as e:
+                        console.print(f"[yellow]Playwright failed: {e}[/yellow]")
+                        console.print("[yellow]Falling back to SSR...[/yellow]")
+                        use_playwright = False
+
+                if not use_playwright:
+                    # Fallback to SSR (no delivery fee/ETA but works everywhere)
+                    async with UberEatsSSRScraper() as scraper:
+                        results = await scraper.scrape_all(addresses, products)
+
+                for r in results:
+                    all_results.append(ScrapedDataPoint(
+                        platform=r.platform,
+                        address_id=r.address_id,
+                        address_name=r.address_name,
+                        zone_type=r.zone_type,
+                        metro_area=r.metro_area,
+                        product_id=r.product_id,
+                        product_name=r.product_name,
+                        product_price_mxn=r.product_price_mxn,
+                        discounted_price_mxn=r.discounted_price_mxn,
+                        delivery_fee_mxn=r.delivery_fee_mxn,
+                        service_fee_mxn=r.service_fee_mxn,
+                        total_price_mxn=r.total_price_mxn,
+                        estimated_minutes_min=r.estimated_minutes_min,
+                        estimated_minutes_max=r.estimated_minutes_max,
+                        restaurant_available=r.restaurant_available,
+                        product_available=r.product_available,
+                        discount_text=r.discount_text,
+                        platform_promotions=r.platform_promotions if hasattr(r, 'platform_promotions') else [],
+                        scrape_success=r.scrape_success,
+                        error_message=r.error_message,
+                        url_scraped=r.url_scraped,
+                    ))
 
             elif platform_name == "didifood":
                 console.print("[yellow]DiDi Food has a login wall - SSR extraction not possible.[/yellow]")

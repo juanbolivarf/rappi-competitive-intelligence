@@ -199,15 +199,23 @@ class RappiSSRScraper:
             # Extract delivery info
             result.delivery_fee_mxn = restaurant_data.get("deliveryPrice")
 
-            # Extract ETA (usually in format "25-35")
+            # Extract ETA - handles formats like "35 min", "25-35 min", "25-35"
             eta = restaurant_data.get("eta", "")
-            if eta and "-" in str(eta):
-                try:
-                    parts = str(eta).split("-")
-                    result.estimated_minutes_min = int(parts[0].strip())
-                    result.estimated_minutes_max = int(parts[1].strip())
-                except (ValueError, IndexError):
-                    pass
+            if eta:
+                import re
+                eta_str = str(eta)
+                # Try "25-35" or "25-35 min" format
+                range_match = re.search(r"(\d+)\s*-\s*(\d+)", eta_str)
+                if range_match:
+                    result.estimated_minutes_min = int(range_match.group(1))
+                    result.estimated_minutes_max = int(range_match.group(2))
+                else:
+                    # Try single number like "35 min"
+                    single_match = re.search(r"(\d+)", eta_str)
+                    if single_match:
+                        minutes = int(single_match.group(1))
+                        result.estimated_minutes_min = minutes
+                        result.estimated_minutes_max = minutes + 10  # Add 10 min buffer
 
             # Extract products from corridors
             corridors = restaurant_data.get("corridors", [])

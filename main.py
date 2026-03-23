@@ -9,6 +9,14 @@ Usage:
     python -m scraper.main --platform rappi    # Single platform
     python -m scraper.main --addresses 5       # Subset (first N)
     python -m scraper.main --dry-run           # Validate config only
+
+SSR Mode (default):
+    Rappi and Uber Eats use SSR extraction (FREE, no Cloudflare needed).
+    DiDi Food requires authentication and is skipped by default.
+
+Legacy Mode (--use-cloudflare):
+    Uses Cloudflare Browser Rendering for all platforms.
+    Costs API credits and is slower, but may be needed if SSR stops working.
 """
 
 import asyncio
@@ -27,6 +35,12 @@ from config import settings, ADDRESSES, PRODUCTS
 from config.addresses import MARKET_AREAS
 from scraper.cloudflare_client import CloudflareClient
 from scraper.base_scraper import ScrapedDataPoint
+
+# SSR Scrapers (FREE - no Cloudflare needed)
+from rappi_ssr_scraper import RappiSSRScraper
+from ubereats_ssr_scraper import UberEatsSSRScraper
+
+# Legacy Cloudflare-based scrapers (for fallback)
 from scraper.rappi_scraper import RappiScraper
 from scraper.ubereats_scraper import UberEatsScraper
 from scraper.didifood_scraper import DiDiFoodScraper
@@ -46,11 +60,22 @@ def setup_logging(level: str = "INFO"):
 
 # ── Scraper registry ─────────────────────────────────────────────
 
-SCRAPERS = {
+# SSR Scrapers (FREE - extract data from HTML without browser rendering)
+SSR_SCRAPERS = {
+    "rappi": RappiSSRScraper,
+    "ubereats": UberEatsSSRScraper,
+    # DiDi Food has login wall - SSR not possible
+}
+
+# Legacy Cloudflare-based scrapers (uses API credits)
+CLOUDFLARE_SCRAPERS = {
     "rappi": RappiScraper,
     "ubereats": UberEatsScraper,
     "didifood": DiDiFoodScraper,
 }
+
+# Default scraper list (for CLI validation)
+SCRAPERS = {**SSR_SCRAPERS, "didifood": DiDiFoodScraper}
 
 
 # ── Data output ───────────────────────────────────────────────────
@@ -121,39 +146,149 @@ async def run_pipeline(
     platforms: list[str],
     addresses_limit: int | None = None,
     metro_areas: list[str] | None = None,
+    use_cloudflare: bool = False,
 ):
-    """Execute the full scraping pipeline."""
-    addresses = [
+    """Execute the full scraping pipeline.
+
+    By default, uses SSR extraction (FREE) for Rappi and Uber Eats.
+    Use --use-cloudflare flag to force Cloudflare Browser Rendering.
+    """
+    # Convert config addresses to the format SSR scrapers expect
+    from rappi_ssr_scraper import Address as SSRAddress
+
+    config_addresses = [
         address for address in ADDRESSES
         if not metro_areas or address.metro_area in metro_areas
     ]
-    addresses = addresses[:addresses_limit] if addresses_limit else addresses
-    all_results: list[ScrapedDataPoint] = []
+    config_addresses = config_addresses[:addresses_limit] if addresses_limit else config_addresses
 
+    # Convert to SSR address format
+    addresses = [
+        SSRAddress(
+            id=addr.id,
+            name=addr.name,
+            zone_type=addr.zone_type,
+            metro_area=addr.metro_area,
+            lat=addr.lat,
+            lng=addr.lng,
+        )
+        for addr in config_addresses
+    ]
+
+    # Convert products to SSR format
+    from rappi_ssr_scraper import Product as SSRProduct
+    products = [
+        SSRProduct(
+            id=p.id,
+            name=p.name,
+            search_terms=p.search_terms,
+        )
+        for p in PRODUCTS
+    ]
+
+    all_results = []
+
+    mode = "Cloudflare" if use_cloudflare else "SSR (FREE)"
     console.print(f"\n[bold]Competitive Intelligence Scraper[/bold]")
+    console.print(f"Mode: [green]{mode}[/green]")
     console.print(f"Platforms: {', '.join(platforms)}")
     console.print(
         f"Metro areas: {', '.join(metro_areas) if metro_areas else 'all configured areas'}"
     )
     console.print(f"Addresses: {len(addresses)}")
-    console.print(f"Products: {len(PRODUCTS)}")
-    console.print(f"Expected data points: {len(platforms) * len(addresses) * len(PRODUCTS)}")
+    console.print(f"Products: {len(products)}")
+    console.print(f"Expected data points: {len(platforms) * len(addresses) * len(products)}")
     console.print()
 
-    async with CloudflareClient() as client:
-        for platform_name in platforms:
-            scraper_class = SCRAPERS[platform_name]
-            scraper = scraper_class()
+    if use_cloudflare:
+        # Legacy mode: use Cloudflare for all platforms
+        async with CloudflareClient() as client:
+            for platform_name in platforms:
+                scraper_class = CLOUDFLARE_SCRAPERS.get(platform_name)
+                if not scraper_class:
+                    console.print(f"[yellow]Skipping {platform_name}: not available in Cloudflare mode[/yellow]")
+                    continue
 
-            console.print(f"\n[bold cyan]━━━ {platform_name.upper()} ━━━[/bold cyan]")
-            results = await scraper.scrape_all(client, addresses, PRODUCTS)
-            all_results.extend(results)
+                scraper = scraper_class()
+                console.print(f"\n[bold cyan]--- {platform_name.upper()} ---[/bold cyan]")
+                results = await scraper.scrape_all(client, config_addresses, PRODUCTS)
+                all_results.extend(results)
+    else:
+        # SSR mode: use free extraction for Rappi and Uber Eats
+        for platform_name in platforms:
+            console.print(f"\n[bold cyan]--- {platform_name.upper()} ---[/bold cyan]")
+
+            if platform_name == "rappi":
+                async with RappiSSRScraper() as scraper:
+                    results = await scraper.scrape_all(None, addresses, products)
+                    # Convert SSR results to standard format
+                    for r in results:
+                        all_results.append(ScrapedDataPoint(
+                            platform=r.platform,
+                            address_id=r.address_id,
+                            address_name=r.address_name,
+                            zone_type=r.zone_type,
+                            metro_area=r.metro_area,
+                            product_id=r.product_id,
+                            product_name=r.product_name,
+                            product_price_mxn=r.product_price_mxn,
+                            discounted_price_mxn=r.discounted_price_mxn,
+                            delivery_fee_mxn=r.delivery_fee_mxn,
+                            service_fee_mxn=r.service_fee_mxn,
+                            total_price_mxn=r.total_price_mxn,
+                            estimated_minutes_min=r.estimated_minutes_min,
+                            estimated_minutes_max=r.estimated_minutes_max,
+                            restaurant_available=r.restaurant_available,
+                            product_available=r.product_available,
+                            discount_text=r.discount_text,
+                            platform_promotions=r.platform_promotions,
+                            scrape_success=r.scrape_success,
+                            error_message=r.error_message,
+                            url_scraped=r.url_scraped,
+                        ))
+
+            elif platform_name == "ubereats":
+                async with UberEatsSSRScraper() as scraper:
+                    results = await scraper.scrape_all(addresses, products)
+                    for r in results:
+                        all_results.append(ScrapedDataPoint(
+                            platform=r.platform,
+                            address_id=r.address_id,
+                            address_name=r.address_name,
+                            zone_type=r.zone_type,
+                            metro_area=r.metro_area,
+                            product_id=r.product_id,
+                            product_name=r.product_name,
+                            product_price_mxn=r.product_price_mxn,
+                            discounted_price_mxn=r.discounted_price_mxn,
+                            delivery_fee_mxn=r.delivery_fee_mxn,
+                            service_fee_mxn=r.service_fee_mxn,
+                            total_price_mxn=r.total_price_mxn,
+                            estimated_minutes_min=r.estimated_minutes_min,
+                            estimated_minutes_max=r.estimated_minutes_max,
+                            restaurant_available=r.restaurant_available,
+                            product_available=r.product_available,
+                            discount_text=r.discount_text,
+                            platform_promotions=r.platform_promotions if hasattr(r, 'platform_promotions') else [],
+                            scrape_success=r.scrape_success,
+                            error_message=r.error_message,
+                            url_scraped=r.url_scraped,
+                        ))
+
+            elif platform_name == "didifood":
+                console.print("[yellow]DiDi Food has a login wall - SSR extraction not possible.[/yellow]")
+                console.print("[yellow]Use --use-cloudflare flag to try Cloudflare (may still fail).[/yellow]")
+                console.print("[yellow]Skipping DiDi Food.[/yellow]")
+                continue
+            else:
+                console.print(f"[yellow]Unknown platform: {platform_name}[/yellow]")
+                continue
 
     # Save results
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
     json_path, csv_path = save_results(all_results, settings.raw_data_dir, timestamp)
 
-    console.print(f"\n[bold green]✓ Data saved:[/bold green]")
+    console.print(f"\n[bold green]Data saved:[/bold green]")
     console.print(f"  JSON: {json_path}")
     console.print(f"  CSV:  {csv_path}")
 
@@ -170,7 +305,7 @@ async def run_pipeline(
     "--platform", "-p",
     type=click.Choice(list(SCRAPERS.keys())),
     multiple=True,
-    help="Specific platform(s) to scrape. Default: all.",
+    help="Specific platform(s) to scrape. Default: rappi, ubereats.",
 )
 @click.option(
     "--addresses", "-a",
@@ -186,6 +321,11 @@ async def run_pipeline(
     help="Limit scraping to one or more metro areas.",
 )
 @click.option(
+    "--use-cloudflare",
+    is_flag=True,
+    help="Use Cloudflare Browser Rendering instead of SSR (costs API credits).",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Validate configuration without scraping.",
@@ -196,29 +336,38 @@ async def run_pipeline(
     default="INFO",
     help="Logging verbosity.",
 )
-def main(platform, addresses, metro_areas, dry_run, log_level):
-    """Rappi Competitive Intelligence — Data Collection Pipeline."""
+def main(platform, addresses, metro_areas, use_cloudflare, dry_run, log_level):
+    """Rappi Competitive Intelligence — Data Collection Pipeline.
+
+    By default, uses FREE SSR extraction for Rappi and Uber Eats.
+    DiDi Food requires authentication and is skipped unless --use-cloudflare is set.
+    """
     setup_logging(log_level)
 
-    # Validate config
-    errors = settings.validate()
-    if errors:
-        for error in errors:
-            console.print(f"[bold red]Config Error:[/bold red] {error}")
-        if not dry_run:
-            sys.exit(1)
+    # SSR mode doesn't need Cloudflare config validation
+    if use_cloudflare:
+        errors = settings.validate()
+        if errors:
+            for error in errors:
+                console.print(f"[bold red]Config Error:[/bold red] {error}")
+            if not dry_run:
+                sys.exit(1)
 
     if dry_run:
-        console.print("[bold green]✓ Configuration valid[/bold green]")
-        console.print(f"  Account ID: {settings.cf_account_id[:8]}...")
+        console.print("[bold green]Configuration valid[/bold green]")
+        if use_cloudflare:
+            console.print(f"  Mode: Cloudflare Browser Rendering")
+            console.print(f"  Account ID: {settings.cf_account_id[:8]}...")
+        else:
+            console.print(f"  Mode: SSR extraction (FREE)")
         console.print(f"  Addresses: {len(ADDRESSES)}")
         console.print(f"  Products: {len(PRODUCTS)}")
-        console.print(f"  Rate limit: {settings.scrape_delay_seconds}s between requests")
         return
 
-    platforms = list(platform) if platform else list(SCRAPERS.keys())
+    # Default to rappi and ubereats only (didifood has login wall)
+    platforms = list(platform) if platform else ["rappi", "ubereats"]
     selected_metro_areas = list(metro_areas) if metro_areas else None
-    asyncio.run(run_pipeline(platforms, addresses, selected_metro_areas))
+    asyncio.run(run_pipeline(platforms, addresses, selected_metro_areas, use_cloudflare))
 
 
 if __name__ == "__main__":

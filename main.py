@@ -40,6 +40,9 @@ from scraper.base_scraper import ScrapedDataPoint
 from rappi_ssr_scraper import RappiSSRScraper
 from ubereats_ssr_scraper import UberEatsSSRScraper
 
+# Playwright Scrapers (full data - requires browser)
+from ubereats_playwright_scraper import UberEatsPlaywrightScraper
+
 # Legacy Cloudflare-based scrapers (for fallback)
 from scraper.rappi_scraper import RappiScraper
 from scraper.ubereats_scraper import UberEatsScraper
@@ -248,7 +251,8 @@ async def run_pipeline(
                         ))
 
             elif platform_name == "ubereats":
-                async with UberEatsSSRScraper() as scraper:
+                # Use Playwright for full data (delivery fee, ETA)
+                async with UberEatsPlaywrightScraper() as scraper:
                     results = await scraper.scrape_all(addresses, products)
                     for r in results:
                         all_results.append(ScrapedDataPoint(

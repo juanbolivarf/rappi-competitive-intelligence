@@ -82,12 +82,13 @@ class CloudflareClient:
 
     @retry(
         stop=stop_after_attempt(5),
-        wait=wait_exponential(multiplier=1, min=5, max=60),
-        retry=retry_if_exception_type((CloudflareRateLimitError, httpx.TimeoutException)),
+        wait=wait_exponential(multiplier=2, min=5, max=60),
+        retry=retry_if_exception_type(
+            (httpx.HTTPStatusError, httpx.TimeoutException, CloudflareRateLimitError)
+        ),
         before_sleep=lambda retry_state: logger.warning(
-            "Retry attempt %s after error: %s",
-            retry_state.attempt_number,
-            retry_state.outcome.exception() if retry_state.outcome else "unknown",
+            f"Retry {retry_state.attempt_number}/5 — waiting before next attempt... "
+            f"({retry_state.outcome.exception().__class__.__name__})"
         ),
     )
     async def _post(self, endpoint: str, payload: dict) -> dict:
@@ -100,20 +101,8 @@ class CloudflareClient:
         response = await self._client.post(url, json=payload)
 
         if response.status_code == 429:
-            retry_after = response.headers.get("Retry-After")
-            if retry_after:
-                try:
-                    wait_seconds = max(1, int(retry_after))
-                    logger.warning("Cloudflare rate limit hit. Waiting %ss before retry.", wait_seconds)
-                    await asyncio.sleep(wait_seconds)
-                except ValueError:
-                    logger.warning("Cloudflare rate limit hit. Invalid Retry-After header: %s", retry_after)
+            logger.warning("Rate limited (429) — will retry with exponential backoff")
             raise CloudflareRateLimitError("Rate limited by Cloudflare")
-
-        if response.status_code == 422:
-            raise CloudflareClientError(
-                f"Cloudflare rejected the request payload (422): {response.text[:500]}"
-            )
 
         response.raise_for_status()
         return response.json()

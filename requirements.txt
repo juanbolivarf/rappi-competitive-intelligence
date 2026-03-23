@@ -2,6 +2,10 @@
 python-dotenv>=1.0.1,<2
 httpx>=0.27,<1
 tenacity>=8.2,<10
+beautifulsoup4>=4.12,<5
+
+# Browser automation (for DiDi Food)
+playwright>=1.40,<2
 
 # Data & Analysis
 pandas>=2.2.3,<3

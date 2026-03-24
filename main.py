@@ -5,10 +5,15 @@ Entry point for the scraping pipeline. Coordinates all platform scrapers,
 manages the Cloudflare client lifecycle, and outputs structured data.
 
 Usage:
-    python -m scraper.main                     # Full run
+    python -m scraper.main                     # Full run (real-time scraping)
     python -m scraper.main --platform rappi    # Single platform
     python -m scraper.main --addresses 5       # Subset (first N)
     python -m scraper.main --dry-run           # Validate config only
+    python -m scraper.main --test-data         # Use synthetic test data
+
+Data Modes:
+    1. Real-time Scraping (default): Live data from Rappi and Uber Eats SSR
+    2. Test Data (--test-data): Synthetic data with realistic market patterns
 
 SSR Mode (default):
     Rappi and Uber Eats use SSR extraction (FREE, no Cloudflare needed).
@@ -47,6 +52,9 @@ from ubereats_playwright_scraper import UberEatsPlaywrightScraper
 from scraper.rappi_scraper import RappiScraper
 from scraper.ubereats_scraper import UberEatsScraper
 from scraper.didifood_scraper import DiDiFoodScraper
+
+# Synthetic data generator (for testing)
+from synthetic_data import generate_synthetic_data
 
 console = Console()
 
@@ -360,21 +368,27 @@ async def run_pipeline(
     help="Validate configuration without scraping.",
 )
 @click.option(
+    "--test-data",
+    is_flag=True,
+    help="Use synthetic test data instead of real-time scraping. Includes all 3 platforms.",
+)
+@click.option(
     "--log-level", "-l",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     default="INFO",
     help="Logging verbosity.",
 )
-def main(platform, addresses, metro_areas, use_cloudflare, dry_run, log_level):
+def main(platform, addresses, metro_areas, use_cloudflare, dry_run, test_data, log_level):
     """Rappi Competitive Intelligence — Data Collection Pipeline.
 
     By default, uses FREE SSR extraction for Rappi and Uber Eats.
     DiDi Food requires authentication and is skipped unless --use-cloudflare is set.
+    Use --test-data to generate synthetic test data with all 3 platforms.
     """
     setup_logging(log_level)
 
     # SSR mode doesn't need Cloudflare config validation
-    if use_cloudflare:
+    if use_cloudflare and not test_data:
         errors = settings.validate()
         if errors:
             for error in errors:
@@ -384,13 +398,86 @@ def main(platform, addresses, metro_areas, use_cloudflare, dry_run, log_level):
 
     if dry_run:
         console.print("[bold green]Configuration valid[/bold green]")
-        if use_cloudflare:
+        if test_data:
+            console.print(f"  Mode: Synthetic Test Data")
+        elif use_cloudflare:
             console.print(f"  Mode: Cloudflare Browser Rendering")
             console.print(f"  Account ID: {settings.cf_account_id[:8]}...")
         else:
             console.print(f"  Mode: SSR extraction (FREE)")
         console.print(f"  Addresses: {len(ADDRESSES)}")
         console.print(f"  Products: {len(PRODUCTS)}")
+        return
+
+    # Test data mode: generate synthetic data for all 3 platforms
+    if test_data:
+        console.print("\n[bold]Competitive Intelligence Scraper — Test Data Mode[/bold]")
+        console.print("[yellow]Using synthetic data with realistic market patterns[/yellow]")
+        console.print(f"Platforms: rappi, ubereats, didifood (all included)")
+        console.print(f"Addresses: {len(ADDRESSES)}")
+        console.print(f"Products: {len(PRODUCTS)}")
+        console.print()
+
+        # Generate synthetic data
+        synthetic_data = generate_synthetic_data()
+
+        # Filter by metro area if specified
+        selected_metro_areas = list(metro_areas) if metro_areas else None
+        if selected_metro_areas:
+            synthetic_data = [
+                d for d in synthetic_data
+                if d["metro_area"] in selected_metro_areas
+            ]
+            console.print(f"Filtered to metro areas: {', '.join(selected_metro_areas)}")
+
+        # Filter by address limit if specified
+        if addresses:
+            address_ids = [addr.id for addr in ADDRESSES[:addresses]]
+            synthetic_data = [
+                d for d in synthetic_data
+                if d["address_id"] in address_ids
+            ]
+            console.print(f"Limited to first {addresses} addresses")
+
+        # Convert to ScrapedDataPoint objects for consistent output
+        results = [
+            ScrapedDataPoint(
+                platform=d["platform"],
+                address_id=d["address_id"],
+                address_name=d["address_name"],
+                zone_type=d["zone_type"],
+                metro_area=d["metro_area"],
+                product_id=d["product_id"],
+                product_name=d["product_name"],
+                product_price_mxn=d["product_price_mxn"],
+                discounted_price_mxn=d["discounted_price_mxn"],
+                delivery_fee_mxn=d["delivery_fee_mxn"],
+                service_fee_mxn=d["service_fee_mxn"],
+                total_price_mxn=d["total_price_mxn"],
+                estimated_minutes_min=d["estimated_minutes_min"],
+                estimated_minutes_max=d["estimated_minutes_max"],
+                restaurant_available=d["restaurant_available"],
+                product_available=d["product_available"],
+                discount_text=d["discount_text"],
+                platform_promotions=d["platform_promotions"],
+                scrape_success=d["scrape_success"],
+                error_message=d["error_message"],
+                url_scraped=d["url_scraped"],
+            )
+            for d in synthetic_data
+        ]
+
+        # Save results
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M")
+        json_path, csv_path = save_results(results, settings.raw_data_dir, timestamp)
+
+        console.print(f"\n[bold green]Synthetic data saved:[/bold green]")
+        console.print(f"  JSON: {json_path}")
+        console.print(f"  CSV:  {csv_path}")
+        console.print(f"  Total data points: {len(results)}")
+
+        # Summary
+        print_summary(results)
         return
 
     # Default to rappi and ubereats only (didifood has login wall)

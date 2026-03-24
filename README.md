@@ -69,20 +69,35 @@ CF_API_TOKEN=your_cloudflare_api_token
 ### Running the Scraper
 
 ```bash
-# Run full scraping pipeline (all platforms, all addresses)
-python -m scraper.main
+# Run full scraping pipeline (Rappi + Uber Eats, real-time SSR)
+python main.py
+
+# Use synthetic test data (includes all 3 platforms)
+python main.py --test-data
 
 # Run for a specific platform only
-python -m scraper.main --platform rappi
-python -m scraper.main --platform ubereats
-python -m scraper.main --platform didifood
+python main.py --platform rappi
+python main.py --platform ubereats
 
 # Run with a subset of addresses (for testing)
-python -m scraper.main --addresses 5
+python main.py --addresses 5
+
+# Filter by metro area
+python main.py --metro-area gdl
 
 # Dry run (validate config without scraping)
-python -m scraper.main --dry-run
+python main.py --dry-run
 ```
+
+### Data Modes
+
+| Mode | Command | Description |
+|------|---------|-------------|
+| **Real-time SSR** | `python main.py` | Live scraping from Rappi & Uber Eats (FREE) |
+| **Test Data** | `python main.py --test-data` | Synthetic data for all 3 platforms |
+| **Cloudflare** | `python main.py --use-cloudflare` | Legacy mode using Cloudflare API |
+
+**Note**: DiDi Food is only available in test data mode. See [DIDI_FOOD_INVESTIGATION.md](DIDI_FOOD_INVESTIGATION.md) for details on why real-time scraping is blocked.
 
 ### Generating the Report
 
@@ -172,11 +187,11 @@ rappi-competitive-intelligence/
 ## 🎯 Scope Definition
 
 ### Platforms (3)
-| Platform | Role | URL Pattern |
-|----------|------|-------------|
-| **Rappi** | Baseline (own data) | rappi.com.mx |
-| **Uber Eats** | Competitor #1 | ubereats.com/mx |
-| **DiDi Food** | Competitor #2 | food.didi.com/mx |
+| Platform | Role | Data Source | Status |
+|----------|------|-------------|--------|
+| **Rappi** | Baseline (own data) | SSR extraction | Live |
+| **Uber Eats** | Competitor #1 | SSR + Playwright | Live |
+| **DiDi Food** | Competitor #2 | Synthetic data | Test only |
 
 ### Geographic Coverage (25 addresses across Guadalajara metro)
 Addresses are selected to represent diverse economic zones:
@@ -219,6 +234,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for full details.
 - Some platforms may block or throttle automated access
 - Prices may vary within the same zone based on surge pricing
 - Cloudflare Browser Rendering does **not bypass CAPTCHAs** or bot protection
+- **DiDi Food**: Login wall + SSL pinning prevent automated scraping. See [DIDI_FOOD_INVESTIGATION.md](DIDI_FOOD_INVESTIGATION.md) for our full investigation and technical blockers
 - Pre-scraped backup data included in `data/raw/backup/` for presentation reliability
 
 ## 📊 Sample Output

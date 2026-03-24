@@ -99,7 +99,11 @@ python main.py --dry-run
 
 **Notes**:
 - DiDi Food is only available in test data mode. See [DIDI_FOOD_INVESTIGATION.md](DIDI_FOOD_INVESTIGATION.md) for details.
-- Cloudflare mode has known issues. See [CLOUDFLARE_ISSUES.md](CLOUDFLARE_ISSUES.md) for details.
+- Cloudflare mode has known issues (free tier limit, rate limiting). See [CLOUDFLARE_ISSUES.md](CLOUDFLARE_ISSUES.md) for details.
+
+**Documentacion en Espanol**:
+- [DIDI_FOOD_INVESTIGATION_ES.md](DIDI_FOOD_INVESTIGATION_ES.md) - Investigacion de DiDi Food
+- [CLOUDFLARE_ISSUES_ES.md](CLOUDFLARE_ISSUES_ES.md) - Problemas con Cloudflare
 
 ### Generating the Report
 

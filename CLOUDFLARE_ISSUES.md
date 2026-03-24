@@ -8,7 +8,30 @@ Cloudflare Browser Rendering was initially chosen as the scraping backend for th
 
 ---
 
-## Issue #1: Rate Limiting (429 Errors)
+## Issue #1: Free Tier Neuron Limit (CRITICAL)
+
+### Problem
+Cloudflare's free tier has a **daily limit of 10,000 neurons** for AI-powered extraction. Once exceeded, all requests fail with HTTP 422 errors until the next day.
+
+### Error Message
+```
+HTTP 422 from Cloudflare: {"success":false,"errors":[{"message":"AI error: AiError: 4006:
+you have used up your daily free allocation of 10,000 neurons, please upgrade to
+Cloudflare's Workers Paid plan if you would like to continue using AI features"}]}
+```
+
+### Impact
+- A single page extraction can consume 500-2000 neurons
+- With 15 addresses × 3 platforms = 45 pages = **~45,000 neurons minimum**
+- **Free tier is exhausted after ~5-10 scrapes per day**
+
+### Solution Required
+- Upgrade to Cloudflare Workers Paid plan ($5/month + usage)
+- Or use SSR extraction (FREE, no limits)
+
+---
+
+## Issue #2: Rate Limiting (429 Errors)
 
 ### Problem
 Cloudflare imposes strict rate limits on Browser Rendering API calls. When scraping multiple addresses/products, we frequently hit `429 Too Many Requests` errors.
@@ -171,6 +194,83 @@ python main.py --use-cloudflare --addresses 3
 
 ---
 
+---
+
+## Alternative Scraping Approaches
+
+Given the limitations of Cloudflare's free tier, here are alternative approaches for future development:
+
+### 1. AI Agent-Based Scraping
+
+Use an AI agent (like Claude or GPT-4) with computer use capabilities to navigate websites like a human user.
+
+**Pros:**
+- Can handle dynamic content and JavaScript
+- Adapts to UI changes automatically
+- Can solve CAPTCHAs with human-like interaction
+- No rate limits from scraping APIs
+
+**Cons:**
+- Higher latency (agent thinks before each action)
+- More expensive per page ($0.05-0.20 per page)
+- Requires careful prompt engineering
+
+**Implementation:**
+```python
+# Example with Claude Computer Use
+from anthropic import Anthropic
+
+client = Anthropic()
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    tools=[{"type": "computer_20241022", "display_width": 1024, "display_height": 768}],
+    messages=[{
+        "role": "user",
+        "content": "Go to rappi.com.mx, search for McDonald's near Providencia, "
+                   "and extract the Big Mac price and delivery fee."
+    }]
+)
+```
+
+### 2. Browserless.io or Similar Services
+
+Cloud browser services with better rate limits and pricing.
+
+**Options:**
+- Browserless.io (~$0.01/page)
+- ScrapingBee (~$0.001/page)
+- Bright Data (~$0.002/page)
+
+### 3. Playwright with Residential Proxies
+
+Run your own Playwright browser with rotating residential IPs to avoid detection.
+
+**Pros:**
+- Full control over browser behavior
+- No neuron/API limits
+- One-time proxy cost
+
+**Cons:**
+- Requires proxy subscription (~$15-50/month)
+- More infrastructure to maintain
+
+### 4. Official APIs (Where Available)
+
+Some platforms offer partner/affiliate APIs:
+- **Rappi**: Partner API (requires business relationship)
+- **Uber Eats**: Affiliate API (limited data)
+- **DiDi Food**: No public API
+
+### 5. Hybrid Approach (Recommended)
+
+Combine multiple methods for resilience:
+1. **Primary**: SSR extraction (FREE) for Rappi + Uber Eats
+2. **Fallback**: Playwright with proxy for failed extractions
+3. **DiDi Food**: AI agent or manual collection
+4. **Testing**: Synthetic data for development
+
+---
+
 ## Conclusion
 
 SSR extraction is the recommended approach for this project:
@@ -178,4 +278,9 @@ SSR extraction is the recommended approach for this project:
 - **Uber Eats**: SSR + Playwright for full data
 - **DiDi Food**: Use synthetic test data (login wall blocks all automated methods)
 
-Cloudflare Browser Rendering remains available as a fallback but is not the primary scraping method.
+Cloudflare Browser Rendering is **not recommended** for production use due to:
+1. Free tier neuron limit (10,000/day) exhausted quickly
+2. Paid tier adds ongoing costs
+3. SSR extraction is faster and free
+
+For future scaling, consider AI agent-based scraping or a hybrid approach with residential proxies.

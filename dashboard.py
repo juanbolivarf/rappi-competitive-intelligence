@@ -251,9 +251,8 @@ with st.sidebar.expander("Run data collection", expanded=True):
             try:
                 with st.spinner("Generating synthetic test data..."):
                     from synthetic_data import generate_synthetic_data
-                    from base_scraper import ScrapedDataPoint
                     from settings import settings
-                    from datetime import datetime
+                    from addresses import ADDRESSES
                     import json
 
                     # Generate synthetic data
@@ -265,7 +264,6 @@ with st.sidebar.expander("Run data collection", expanded=True):
 
                     # Filter by address limit
                     if scrape_address_limit:
-                        from addresses import ADDRESSES
                         address_ids = [addr.id for addr in ADDRESSES[:int(scrape_address_limit)]]
                         synthetic_data = [d for d in synthetic_data if d["address_id"] in address_ids]
 

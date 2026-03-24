@@ -40,3 +40,4 @@ assets/*.png
 !assets/README.md
 .didi_session/
 nul
+*.flow

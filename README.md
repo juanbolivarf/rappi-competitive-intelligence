@@ -97,7 +97,9 @@ python main.py --dry-run
 | **Test Data** | `python main.py --test-data` | Synthetic data for all 3 platforms |
 | **Cloudflare** | `python main.py --use-cloudflare` | Legacy mode using Cloudflare API |
 
-**Note**: DiDi Food is only available in test data mode. See [DIDI_FOOD_INVESTIGATION.md](DIDI_FOOD_INVESTIGATION.md) for details on why real-time scraping is blocked.
+**Notes**:
+- DiDi Food is only available in test data mode. See [DIDI_FOOD_INVESTIGATION.md](DIDI_FOOD_INVESTIGATION.md) for details.
+- Cloudflare mode has known issues. See [CLOUDFLARE_ISSUES.md](CLOUDFLARE_ISSUES.md) for details.
 
 ### Generating the Report
 

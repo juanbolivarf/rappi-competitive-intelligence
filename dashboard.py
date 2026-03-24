@@ -214,50 +214,187 @@ if data_meta["source"] == "live_scrape":
 else:
     st.sidebar.warning("Using synthetic fallback data")
 
-with st.sidebar.expander("Run live scrape"):
-    scrape_markets = st.multiselect(
-        "Metro areas",
-        options=MARKET_AREAS,
-        default=[DEFAULT_MARKET],
-        format_func=lambda x: MARKET_LABELS[x],
-        key="scrape_markets",
-    )
-    scrape_platforms = st.multiselect(
-        "Platforms to scrape",
-        options=list(LABELS.keys()),
-        default=["rappi", "ubereats"],
-        format_func=lambda x: LABELS[x],
-        key="scrape_platforms",
-    )
-    scrape_address_limit = st.number_input(
-        "Address limit",
-        min_value=1,
-        max_value=25,
-        value=5,
-        step=1,
-        help="Use a small subset first. Full runs take longer and cost more API calls.",
-    )
-    if st.button("Run live scrape", width="stretch"):
-        if not scrape_markets:
-            st.error("Select at least one metro area.")
-        elif not scrape_platforms:
-            st.error("Select at least one platform.")
-        else:
+st.sidebar.markdown("### Data Collection")
+
+# Data source selector
+data_mode = st.sidebar.radio(
+    "Select data mode:",
+    options=["test_data", "live_ssr", "live_cloudflare"],
+    format_func=lambda x: {
+        "test_data": "Test Data (Synthetic)",
+        "live_ssr": "Live Scrape (SSR - FREE)",
+        "live_cloudflare": "Live Scrape (Cloudflare)",
+    }[x],
+    index=0,
+    help="Test Data: All 3 platforms with realistic patterns. Live SSR: Rappi + Uber only (FREE). Cloudflare: Legacy mode.",
+)
+
+with st.sidebar.expander("Run data collection", expanded=True):
+    if data_mode == "test_data":
+        st.info("**Test Data Mode**\n\nGenerates synthetic data for all 3 platforms (Rappi, Uber Eats, DiDi Food) with realistic market patterns.")
+        scrape_markets = st.multiselect(
+            "Metro areas",
+            options=MARKET_AREAS,
+            default=[DEFAULT_MARKET],
+            format_func=lambda x: MARKET_LABELS[x],
+            key="test_markets",
+        )
+        scrape_address_limit = st.number_input(
+            "Address limit",
+            min_value=1,
+            max_value=25,
+            value=15,
+            step=1,
+            key="test_address_limit",
+        )
+        if st.button("Generate Test Data", type="primary", use_container_width=True):
             try:
-                with st.spinner("Running live scrape against Cloudflare Browser Rendering..."):
-                    results = run_live_scrape(
-                        scrape_platforms,
-                        int(scrape_address_limit),
-                        scrape_markets,
-                    )
-                success_count = sum(1 for row in results if row.scrape_success)
+                with st.spinner("Generating synthetic test data..."):
+                    from synthetic_data import generate_synthetic_data
+                    from base_scraper import ScrapedDataPoint
+                    from settings import settings
+                    from datetime import datetime
+                    import json
+
+                    # Generate synthetic data
+                    synthetic_data = generate_synthetic_data()
+
+                    # Filter by metro area
+                    if scrape_markets:
+                        synthetic_data = [d for d in synthetic_data if d["metro_area"] in scrape_markets]
+
+                    # Filter by address limit
+                    if scrape_address_limit:
+                        from addresses import ADDRESSES
+                        address_ids = [addr.id for addr in ADDRESSES[:int(scrape_address_limit)]]
+                        synthetic_data = [d for d in synthetic_data if d["address_id"] in address_ids]
+
+                    # Save to file
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+                    output_dir = settings.raw_data_dir
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    json_path = output_dir / f"scrape_{timestamp}.json"
+                    json_path.write_text(json.dumps(synthetic_data, indent=2, ensure_ascii=False))
+
                 st.cache_data.clear()
-                st.success(
-                    f"Scrape completed: {success_count}/{len(results)} successful product observations."
-                )
+                st.success(f"Generated {len(synthetic_data)} data points (all 3 platforms)")
                 st.rerun()
             except Exception as exc:
-                st.error(f"Live scrape failed: {exc}")
+                st.error(f"Test data generation failed: {exc}")
+
+    elif data_mode == "live_ssr":
+        st.info("**Live SSR Mode (FREE)**\n\nScrapes Rappi and Uber Eats using server-side rendering extraction. No API costs.")
+        st.warning("DiDi Food not available (login wall)")
+        scrape_markets = st.multiselect(
+            "Metro areas",
+            options=MARKET_AREAS,
+            default=[DEFAULT_MARKET],
+            format_func=lambda x: MARKET_LABELS[x],
+            key="ssr_markets",
+        )
+        scrape_platforms = st.multiselect(
+            "Platforms",
+            options=["rappi", "ubereats"],
+            default=["rappi", "ubereats"],
+            format_func=lambda x: LABELS[x],
+            key="ssr_platforms",
+        )
+        scrape_address_limit = st.number_input(
+            "Address limit",
+            min_value=1,
+            max_value=25,
+            value=5,
+            step=1,
+            help="Start small to test connectivity.",
+            key="ssr_address_limit",
+        )
+        if st.button("Run Live SSR Scrape", type="primary", use_container_width=True):
+            if not scrape_markets:
+                st.error("Select at least one metro area.")
+            elif not scrape_platforms:
+                st.error("Select at least one platform.")
+            else:
+                try:
+                    with st.spinner("Running SSR extraction (FREE)..."):
+                        results = run_live_scrape(
+                            scrape_platforms,
+                            int(scrape_address_limit),
+                            scrape_markets,
+                        )
+                    success_count = sum(1 for row in results if row.scrape_success)
+                    st.cache_data.clear()
+                    st.success(f"Scrape completed: {success_count}/{len(results)} successful")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Live scrape failed: {exc}")
+
+    else:  # live_cloudflare
+        st.warning("**Cloudflare Mode (Legacy)**\n\nUses Cloudflare Browser Rendering API. Costs API credits and has known issues.")
+        with st.expander("Known Cloudflare Issues"):
+            st.markdown("""
+            **Rate Limiting (429 errors)**
+            - Cloudflare limits requests per minute
+            - Use small address limits (3-5)
+
+            **Timeout Issues**
+            - Some pages take too long to render
+            - Increase REQUEST_TIMEOUT in settings
+
+            **Bot Detection**
+            - Some platforms detect automated access
+            - May return incomplete data
+
+            **DiDi Food Login Wall**
+            - Requires authentication
+            - Cannot bypass with Cloudflare
+
+            See `DIDI_FOOD_INVESTIGATION.md` for full details.
+            """)
+        scrape_markets = st.multiselect(
+            "Metro areas",
+            options=MARKET_AREAS,
+            default=[DEFAULT_MARKET],
+            format_func=lambda x: MARKET_LABELS[x],
+            key="cf_markets",
+        )
+        scrape_platforms = st.multiselect(
+            "Platforms",
+            options=list(LABELS.keys()),
+            default=["rappi", "ubereats"],
+            format_func=lambda x: LABELS[x],
+            key="cf_platforms",
+        )
+        scrape_address_limit = st.number_input(
+            "Address limit",
+            min_value=1,
+            max_value=25,
+            value=3,
+            step=1,
+            help="Keep low to avoid rate limits.",
+            key="cf_address_limit",
+        )
+        if st.button("Run Cloudflare Scrape", use_container_width=True):
+            if not scrape_markets:
+                st.error("Select at least one metro area.")
+            elif not scrape_platforms:
+                st.error("Select at least one platform.")
+            else:
+                try:
+                    with st.spinner("Running Cloudflare Browser Rendering..."):
+                        from main import run_pipeline
+                        import asyncio
+                        results = asyncio.run(run_pipeline(
+                            scrape_platforms,
+                            int(scrape_address_limit),
+                            scrape_markets,
+                            use_cloudflare=True,
+                        ))
+                    success_count = sum(1 for row in results if row.scrape_success)
+                    st.cache_data.clear()
+                    st.success(f"Scrape completed: {success_count}/{len(results)} successful")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Cloudflare scrape failed: {exc}")
 
 selected_zones = st.sidebar.multiselect(
     "Zone Types",

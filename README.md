@@ -2,8 +2,6 @@
 
 **Automated competitive intelligence platform for Rappi — collecting, analyzing, and visualizing pricing and delivery data across delivery platforms in Mexico.**
 
-> Built for the Rappi AI Engineer technical case.
-
 ---
 
 ## 📐 System Architecture
